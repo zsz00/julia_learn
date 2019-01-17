@@ -10,8 +10,9 @@ labels = onehotbatch(MNIST.labels(:train), 0:9)
 
 # Partition into batches of size 1,000
 train = [(cat(float.(imgs[i])..., dims = 4), labels[:,i]) for i in partition(1:60_000, 1000)]
-
 println("a1: ", size(train), typeof(train))
+train = repeated(train, 4)
+println("a2: ", size(train), typeof(train))
 train = gpu.(train)
 
 # Prepare test set (first 1,000 images)

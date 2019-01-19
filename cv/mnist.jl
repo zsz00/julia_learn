@@ -11,8 +11,10 @@ labels = onehotbatch(MNIST.labels(:train), 0:9)
 # Partition into batches of size 1,000
 train = [(cat(float.(imgs[i])..., dims = 4), labels[:,i]) for i in partition(1:60_000, 1000)]
 println("a1: ", size(train), typeof(train))
-train = repeated(train, 4)
-println("a2: ", size(train), typeof(train))
+# train = repeated(train, 4)
+# println("a2: ",  typeof(train))   # size(train),
+train = cat(train, train, train, train, train, train, train, train, train, train, train, train, dims=1)
+train = cat(train, train, train, train, train, train, train, train, train, train, train, train, dims=1)
 train = gpu.(train)
 
 # Prepare test set (first 1,000 images)
@@ -20,12 +22,18 @@ tX = cat(float.(MNIST.images(:test)[1:1000])..., dims = 4) |> gpu
 tY = onehotbatch(MNIST.labels(:test)[1:1000], 0:9) |> gpu  # |> 是左结合， 从左到右依次执行
 
 m = Chain(
-  Conv((2,2), 1=>16, relu),  # 卷积层， relu激活函数
+  Conv((3,3), 1=>16, relu),  # 卷积层， relu激活函数
   x -> maxpool(x, (2,2)),    # 匿名函数， 最大池化
-  Conv((2,2), 16=>8, relu),
-  x -> maxpool(x, (2,2)),    
+  Conv((3,3), 16=>32, relu),
+  x -> maxpool(x, (2,2)),  
+  Conv((2,2), 32=>64, relu),
+  x -> maxpool(x, (2,2)), 
+#   Conv((3,3), 64=>32, relu),
+#   x -> maxpool(x, (2,2)), 
+#   Conv((2,2), 16=>8, relu),
+#   x -> maxpool(x, (2,2)),   
   x -> reshape(x, :, size(x, 4)),
-  Dense(288, 10),    # 全连接层， 组合应用特征，完成 分类任务。
+  Dense(256, 10),    # 全连接层， 组合应用特征，完成 分类任务。288
   softmax) |> gpu
 
 println("aaa: ", size(train))        # 480
@@ -35,7 +43,6 @@ m(train[1][1])   # 一批
 loss(x, y) = crossentropy(m(x), y)
 
 accuracy(x, y) = mean(onecold(m(x)) .== onecold(y))
-
 evalcb = throttle(() -> @show(accuracy(tX, tY)), 10)
 opt = ADAM(params(m))
 
@@ -43,4 +50,12 @@ Flux.train!(loss, train, opt, cb = evalcb)
 
 
 # 怎么repeat   ??
+#=
+accuracy(tX, tY) = 0.865  60*4
+accuracy(tX, tY) = 0.904  60*6
+accuracy(tX, tY) = 0.935  60*12=720
+accuracy(tX, tY) = 0.952  60*12*12=8640
+accuracy(tX, tY) = 0.982
+
+=#
 

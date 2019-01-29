@@ -4,7 +4,7 @@ using Metalhead: trainimgs
 using Images: channelview
 using Statistics: mean
 using Base.Iterators: partition
-using CuArrays   # 使用GPU
+# using CuArrays   # 使用GPU
 
 
 # VGG16 and VGG19 models
@@ -115,24 +115,25 @@ labels = onehotbatch([X[i].ground_truth.class for i in 1:50000],1:10)
 println("imgs: ", size(imgs))
 # Partition into batches of size 1000, img size 32*32
 train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 10)]  # 49
-train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)  # 49*10=490
-train = train |> gpu
-println("train: ", size(train))
+# train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)  # 49*10=490
+# train = cat(train, train, train, train, train, train, dims=1) 
+train = gpu.(train)  # |> gpu   # 把所有的数据都加载到GPU里了，不是bacth模式的
+println("train: ", size(train), "batch, bs:", size(train[1][1]))
 valset = collect(49001:50000)
 valX = cat(imgs[valset]..., dims = 4) |> gpu
 valY = labels[:, valset] |> gpu
 
 # Defining the loss and accuracy functions
 
-# m = vgg16()
-m = small
+m = vgg16()
+# m = small
 
 loss(x, y) = crossentropy(m(x), y)
 
 accuracy(x, y) = mean(onecold(m(x), 1:10) .== onecold(y, 1:10))
 
 # Defining the callback and the optimizer
-evalcb = throttle(() -> @show(accuracy(valX, valY)), 100)
+evalcb = throttle(() -> @show(accuracy(valX, valY)), 10)
 opt = ADAM()
 
 # Starting to train models
@@ -152,9 +153,9 @@ Flux.train!(loss, params(m), train, opt, cb = evalcb)
 
 
 #=
-accuracy(valX, valY) = 0.344
-accuracy(valX, valY) = 0.587
+accuracy(valX, valY) = 0.614
   PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND                                                                                                
 20932 test      20   0 4325636 3.290g  93744 R 569.1 21.1  85:37.60 julia -q vgg.jl
+
 
 =#

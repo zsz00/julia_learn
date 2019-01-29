@@ -46,7 +46,6 @@ opt = ADAM(params(m))
 Flux.train!(loss, train, opt, cb = evalcb)
 
 
-
 # 怎么repeat   ??
 #=
 accuracy(tX, tY) = 0.865  60*4

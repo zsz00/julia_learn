@@ -1,8 +1,10 @@
 using Flux, Metalhead
 using Flux: onehotbatch, onecold, crossentropy, throttle
 using Metalhead: trainimgs
-using Images
+using Images: channelview
+using Statistics: mean
 using Base.Iterators: partition
+# using CuArrays   # 使用GPU
 
 # VGG16 and VGG19 models
 vgg16() = Chain(
@@ -89,40 +91,62 @@ vgg19() = Chain(
   softmax) |> gpu
 
 # Function to convert the RGB image to Float64 Arrays
+small() = Chain(
+  Conv((3,3), 1=>16, relu),  # 卷积层， relu激活函数
+  x -> maxpool(x, (2,2)),    # 匿名函数， 最大池化
+  Conv((3,3), 16=>32, relu), 
+  Conv((3,3), 32=>64, relu),
+  x -> maxpool(x, (2,2)), 
+  Conv((1,1), 64=>128, relu),
+  Conv((3,3), 128=>256, relu),
+  x -> maxpool(x, (2,2)),   
+  x -> reshape(x, :, size(x, 4)),
+  Dense(256, 10),    # 全连接层， 组合应用特征，完成 分类任务。288
+  softmax) |> gpu
 
 getarray(X) = Float64.(permutedims(channelview(X), (2, 3, 1)))
 
 # Fetching the train and validation data and getting them into proper shape
 # Metalhead.download(CIFAR10)     # 下载数据集
 X = trainimgs(CIFAR10)
-imgs = [getarray(X[i].img) for i in 1:50000]
+imgs = [getarray(X[i].img) for i in 1:50000]  # 32*32
 labels = onehotbatch([X[i].ground_truth.class for i in 1:50000],1:10)
-train = gpu.([(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 1000)])
+println("imgs: ", size(imgs))
+train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 1000)]
+train = train |> gpu
+println("train: ", size(train))
 valset = collect(49001:50000)
 valX = cat(imgs[valset]..., dims = 4) |> gpu
 valY = labels[:, valset] |> gpu
 
 # Defining the loss and accuracy functions
-m = vgg16()
+
+# m = vgg16()
+m = small()
 
 loss(x, y) = crossentropy(m(x), y)
 
 accuracy(x, y) = mean(onecold(m(x), 1:10) .== onecold(y, 1:10))
 
 # Defining the callback and the optimizer
+
 evalcb = throttle(() -> @show(accuracy(valX, valY)), 10)
 
-opt = ADAM(params(m))
+opt = ADAM()
 
 # Starting to train models
-Flux.train!(loss, train, opt, cb = evalcb)
+
+Flux.train!(loss, params(m), train, opt, cb = evalcb)
 
 # Fetch the test data from Metalhead and get it into proper shape.
 # CIFAR-10 does not specify a validation set so valimgs fetch the testdata instead of testimgs
-# test = valimgs(CIFAR10)
-# testimgs = [getarray(test[i].img) for i in 1:10000]
-# testY = onehotbatch([test[i].ground_truth.class for i in 1:10000], 1:10) |> gpu
-# testX = cat(4, testimgs...) |> gpu
 
-# # Print the final accuracy
-# @show(accuracy(testX, testY))
+test = valimgs(CIFAR10)
+
+testimgs = [getarray(test[i].img) for i in 1:10000]
+testY = onehotbatch([test[i].ground_truth.class for i in 1:10000], 1:10) |> gpu
+testX = cat(testimgs..., dims=4) |> gpu
+
+# Print the final accuracy
+
+@show(accuracy(testX, testY))

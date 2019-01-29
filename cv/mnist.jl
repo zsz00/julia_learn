@@ -1,10 +1,9 @@
 using Flux, Flux.Data.MNIST, Statistics
 using Flux: onehotbatch, onecold, crossentropy, throttle, gpu
 using Base.Iterators: repeated, partition
-# using CuArrays
+using CuArrays   # 使用GPU
 
 # Classify MNIST digits with a convolutional network
-
 imgs = MNIST.images(:train)
 labels = onehotbatch(MNIST.labels(:train), 0:9)
 
@@ -14,8 +13,8 @@ println("a1: ", size(train), typeof(train))
 # train = repeated(train, 4)
 # println("a2: ",  typeof(train))   # size(train),
 train = cat(train, train, train, train, train, train, train, train, train, train, train, train, dims=1)
-train = cat(train, train, train, train, train, train, train, train, train, train, train, train, dims=1) |> gpu
-# train = gpu.(train)
+# train = cat(train, train, train, train, train, train, train, train, train, train, train, train, dims=1) |> gpu
+train = gpu.(train)   # 把所有的数据都加载到GPU里了，不是bacth模式的
 
 # Prepare test set (first 1,000 images)
 tX = cat(float.(MNIST.images(:test)[1:1000])..., dims = 4) |> gpu  
@@ -41,7 +40,7 @@ m(train[1][1])   # 一批
 loss(x, y) = crossentropy(m(x), y)
 
 accuracy(x, y) = mean(onecold(m(x)) .== onecold(y))
-evalcb = throttle(() -> @show(accuracy(tX, tY)), 100)
+evalcb = throttle(() -> @show(accuracy(tX, tY)), 10)
 opt = ADAM(params(m))
 
 Flux.train!(loss, train, opt, cb = evalcb)
@@ -55,5 +54,11 @@ accuracy(tX, tY) = 0.935  60*12=720
 accuracy(tX, tY) = 0.952  60*12*12=8640
 accuracy(tX, tY) = 0.982
 accuracy(tX, tY) = 0.990
+
+
+Allocations: 93152515 (Pool: 92969827; Big: 182688); GC: 221
+Aborted (core dumped)
+显存爆了
+
 =#
 

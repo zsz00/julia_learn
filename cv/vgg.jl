@@ -93,7 +93,7 @@ vgg19() = Chain(
 
 # Function to convert the RGB image to Float64 Arrays
 small = Chain(
-  Conv((3,3), 1=>16, relu),  # 卷积层， relu激活函数
+  Conv((3,3), 3=>16, relu),  # 卷积层， relu激活函数
   x -> maxpool(x, (2,2)),    # 匿名函数， 最大池化
   Conv((3,3), 16=>32, relu), 
   Conv((3,3), 32=>64, relu),
@@ -114,6 +114,7 @@ imgs = [getarray(X[i].img) for i in 1:50000]  # 32*32
 labels = onehotbatch([X[i].ground_truth.class for i in 1:50000],1:10)
 println("imgs: ", size(imgs))
 train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 1000)]  # 49
+train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)  # 49*10=490
 train = train |> gpu
 println("train: ", size(train))
 valset = collect(49001:50000)
@@ -150,3 +151,11 @@ Flux.train!(loss, params(m), train, opt, cb = evalcb)
 
 # # Print the final accuracy
 # @show(accuracy(testX, testY))
+
+
+#=
+accuracy(valX, valY) = 0.344
+
+
+
+=#

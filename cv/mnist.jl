@@ -12,8 +12,8 @@ train = [(cat(float.(imgs[i])..., dims = 4), labels[:,i]) for i in partition(1:6
 println("a1: ", size(train), typeof(train))
 # train = repeated(train, 4)
 # println("a2: ",  typeof(train))   # size(train),
-train = cat(train, train, train, train, train, train, train, train, train, train, train, train, dims=1)
-# train = cat(train, train, train, train, train, train, train, train, train, train, train, train, dims=1) |> gpu
+train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)
+# train = cat(train, train, train, train, train, train, train, train, train, train, dims=1) |> gpu
 train = gpu.(train)   # 把所有的数据都加载到GPU里了，不是bacth模式的
 
 # Prepare test set (first 1,000 images)
@@ -21,7 +21,7 @@ tX = cat(float.(MNIST.images(:test)[1:1000])..., dims = 4) |> gpu
 tY = onehotbatch(MNIST.labels(:test)[1:1000], 0:9) |> gpu  # |> 是左结合， 从左到右依次执行
 
 m = Chain(
-  Conv((3,3), 1=>16, relu),  # 卷积层， relu激活函数
+  Conv((3,3), 3=>16, relu),  # 卷积层， relu激活函数
   x -> maxpool(x, (2,2)),    # 匿名函数， 最大池化
   Conv((3,3), 16=>32, relu), 
   Conv((3,3), 32=>64, relu),

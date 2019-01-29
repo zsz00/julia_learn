@@ -21,7 +21,7 @@ tX = cat(float.(MNIST.images(:test)[1:1000])..., dims = 4) |> gpu
 tY = onehotbatch(MNIST.labels(:test)[1:1000], 0:9) |> gpu  # |> 是左结合， 从左到右依次执行
 
 m = Chain(
-  Conv((3,3), 3=>16, relu),  # 卷积层， relu激活函数
+  Conv((3,3), 1=>16, relu),  # 卷积层， relu激活函数
   x -> maxpool(x, (2,2)),    # 匿名函数， 最大池化
   Conv((3,3), 16=>32, relu), 
   Conv((3,3), 32=>64, relu),

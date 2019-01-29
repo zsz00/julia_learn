@@ -118,7 +118,7 @@ train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 10)]
 # train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)  # 49*10=490
 # train = cat(train, train, train, train, train, train, dims=1) 
 train = gpu.(train)  # |> gpu   # 把所有的数据都加载到GPU里了，不是bacth模式的
-println("train: ", size(train), "batch, bs:", size(train[1][1]))
+println("train: ", size(train)[1], "batch, bs:", size(train[1][1]))
 valset = collect(49001:50000)
 valX = cat(imgs[valset]..., dims = 4) |> gpu
 valY = labels[:, valset] |> gpu

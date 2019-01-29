@@ -7,7 +7,7 @@ using CuArrays   # 使用GPU
 imgs = MNIST.images(:train)
 labels = onehotbatch(MNIST.labels(:train), 0:9)
 
-# Partition into batches of size 1,000
+# Partition into batches of size 1000, img size 28*28
 train = [(cat(float.(imgs[i])..., dims = 4), labels[:,i]) for i in partition(1:60_000, 1000)]
 println("a1: ", size(train), typeof(train))
 # train = repeated(train, 4)
@@ -44,6 +44,8 @@ evalcb = throttle(() -> @show(accuracy(tX, tY)), 10)
 opt = ADAM(params(m))
 
 Flux.train!(loss, train, opt, cb = evalcb)
+
+
 
 # 怎么repeat   ??
 #=

@@ -6,6 +6,7 @@ using Statistics: mean
 using Base.Iterators: partition
 # using CuArrays   # 使用GPU
 
+
 # VGG16 and VGG19 models
 vgg16() = Chain(
   Conv((3, 3), 3 => 64, relu, pad=(1, 1), stride=(1, 1)),
@@ -91,7 +92,7 @@ vgg19() = Chain(
   softmax) |> gpu
 
 # Function to convert the RGB image to Float64 Arrays
-small() = Chain(
+small = Chain(
   Conv((3,3), 1=>16, relu),  # 卷积层， relu激活函数
   x -> maxpool(x, (2,2)),    # 匿名函数， 最大池化
   Conv((3,3), 16=>32, relu), 
@@ -104,7 +105,7 @@ small() = Chain(
   Dense(256, 10),    # 全连接层， 组合应用特征，完成 分类任务。288
   softmax) |> gpu
 
-getarray(X) = Float64.(permutedims(channelview(X), (2, 3, 1)))
+getarray(X) = Float64.(permutedims(channelview(X), (2, 3, 1)))  # RGB转换为BGR
 
 # Fetching the train and validation data and getting them into proper shape
 # Metalhead.download(CIFAR10)     # 下载数据集
@@ -112,7 +113,7 @@ X = trainimgs(CIFAR10)
 imgs = [getarray(X[i].img) for i in 1:50000]  # 32*32
 labels = onehotbatch([X[i].ground_truth.class for i in 1:50000],1:10)
 println("imgs: ", size(imgs))
-train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 1000)]
+train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 1000)]  # 49
 train = train |> gpu
 println("train: ", size(train))
 valset = collect(49001:50000)
@@ -122,7 +123,7 @@ valY = labels[:, valset] |> gpu
 # Defining the loss and accuracy functions
 
 # m = vgg16()
-m = small()
+m = small
 
 loss(x, y) = crossentropy(m(x), y)
 
@@ -141,12 +142,11 @@ Flux.train!(loss, params(m), train, opt, cb = evalcb)
 # Fetch the test data from Metalhead and get it into proper shape.
 # CIFAR-10 does not specify a validation set so valimgs fetch the testdata instead of testimgs
 
-test = valimgs(CIFAR10)
+# test = valimgs(CIFAR10)
 
-testimgs = [getarray(test[i].img) for i in 1:10000]
-testY = onehotbatch([test[i].ground_truth.class for i in 1:10000], 1:10) |> gpu
-testX = cat(testimgs..., dims=4) |> gpu
+# testimgs = [getarray(test[i].img) for i in 1:10000]
+# testY = onehotbatch([test[i].ground_truth.class for i in 1:10000], 1:10) |> gpu
+# testX = cat(testimgs..., dims=4) |> gpu
 
-# Print the final accuracy
-
-@show(accuracy(testX, testY))
+# # Print the final accuracy
+# @show(accuracy(testX, testY))

@@ -8,7 +8,7 @@ imgs = MNIST.images(:train)
 labels = onehotbatch(MNIST.labels(:train), 0:9)
 
 # Partition into batches of size 1000, img size 28*28
-train = [(cat(float.(imgs[i])..., dims = 4), labels[:,i]) for i in partition(1:60_000, 1000)]
+train = [(cat(float.(imgs[i])..., dims = 4), labels[:,i]) for i in partition(1:60_000, 100)]
 println("a1: ", size(train), typeof(train))
 # train = repeated(train, 4)
 # println("a2: ",  typeof(train))   # size(train),

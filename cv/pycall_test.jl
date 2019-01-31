@@ -29,7 +29,7 @@ function stitcher()
     retval, pano = stitcher.stitch(imgs)  # 拼接. 效果还可以. 默认是球形拼接
     # print('stitched status:',  stat[retval])  # 0是正常, 1是失败, 2是单应性评估错误, 3是相机参数调整失败
     if retval == 0
-        out_file = "out.jpg"
+        out_file = "cv/out.jpg"
         cv2.imwrite(out_file, pano)
         print("write pano file done !!")
         cv2.imshow("pano ", pano)  # 可能显示不全

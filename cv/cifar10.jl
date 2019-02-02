@@ -35,7 +35,7 @@ imgs = [getarray(X[i].img) for i in 1:50000]  # 32*32
 labels = onehotbatch([X[i].ground_truth.class for i in 1:50000],1:10)
 println("imgs: ", size(imgs))
 # Partition into batches of size 1000, img size 32*32
-train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 20)]  # 49
+train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 10)]  # 49
 # train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)  # 49*10=490
 train = cat(train, train, dims=1) 
 train = gpu.(train)  # |> gpu   # 把所有的数据都加载到GPU里了，不是bacth模式的

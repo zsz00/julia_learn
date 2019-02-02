@@ -1,4 +1,5 @@
 using Flux
+using Flux: @treelike
 
 
 struct ResidualBlock
@@ -60,7 +61,7 @@ function resnet50()
 
   push!(layer_arr, x -> meanpool(x, (7,7)))
   push!(layer_arr, x -> reshape(x, :, size(x,4)))
-  push!(layer_arr, (Dense(2048, 1000)))
+  push!(layer_arr, (Dense(2048, 10)))   # 1000
   push!(layer_arr, softmax)
 
   Chain(layer_arr...)
@@ -88,14 +89,14 @@ function resnet_layers()
   return ls
 end
 
-struct ResNet <: ClassificationModel{ImageNet.ImageNet1k}
-  layers::Chain
-end
+# struct ResNet <: ClassificationModel{ImageNet.ImageNet1k}
+#   layers::Chain
+# end
 
-ResNet() = ResNet(resnet_layers())
+# ResNet() = ResNet(resnet_layers())
 
-Base.show(io::IO, ::ResNet) = print(io, "ResNet()")
+# Base.show(io::IO, ::ResNet) = print(io, "ResNet()")
 
-@treelike ResNet
+# @treelike ResNet
 
-(m::ResNet)(x) = m.layers(x)
+# (m::ResNet)(x) = m.layers(x)

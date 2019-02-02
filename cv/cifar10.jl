@@ -7,7 +7,7 @@ using Statistics: mean
 using Base.Iterators: partition
 using CuArrays   # 使用GPU
 using BSON: @save
-include "net/vgg.jl"
+include("net/vgg.jl")
 
 # VGG16 and VGG19 models
 # vgg16() = Chain(

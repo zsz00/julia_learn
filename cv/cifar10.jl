@@ -37,7 +37,7 @@ println("imgs: ", size(imgs))
 # Partition into batches of size 1000, img size 32*32
 train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 10)]  # 49
 # train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)  # 49*10=490
-train = cat(train, train, dims=1) 
+# train = cat(train, train, dims=1) 
 train = gpu.(train)  # |> gpu   # 把所有的数据都加载到GPU里了，不是bacth模式的
 println("train: ", size(train)[1], " batch, bs:", size(train[1][1]))
 valset = collect(49001:50000)

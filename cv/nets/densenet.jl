@@ -1,3 +1,5 @@
+using Flux
+
 struct Bottleneck
   layer
 end

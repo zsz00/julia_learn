@@ -1,3 +1,5 @@
+using Flux
+
 struct InceptionBlock
   path_1
   path_2

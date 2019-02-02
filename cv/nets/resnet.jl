@@ -1,3 +1,6 @@
+using Flux
+
+
 struct ResidualBlock
   conv_layers
   norm_layers

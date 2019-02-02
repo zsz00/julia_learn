@@ -7,8 +7,10 @@ using Statistics: mean
 using Base.Iterators: partition
 using CuArrays   # 使用GPU
 using BSON: @save
-include("nets/vgg.jl")
-include("nets/small.jl")
+# include("nets/vgg.jl")
+# include("nets/small.jl")
+include("nets/resnet.jl")
+
 
 small = Chain(
   Conv((3,3), 3=>16, relu),  # 卷积层， relu激活函数
@@ -44,7 +46,8 @@ valY = labels[:, valset] |> gpu
 
 # Defining the model, loss and accuracy functions
 # m = vgg16() |> gpu
-m = small_1 |> gpu
+# m = small_1 |> gpu
+m = resnet50() |> gpu
 
 loss(x, y) = crossentropy(m(x), y)
 accuracy(x, y) = mean(onecold(m(x), 1:10) .== onecold(y, 1:10))

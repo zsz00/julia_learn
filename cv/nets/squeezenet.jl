@@ -1,3 +1,5 @@
+using Flux
+
 function squeezenet_layers()
   weight = Metalhead.weights("squeezenet.bson")
   weights = Dict{Any ,Any}()

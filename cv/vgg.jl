@@ -1,3 +1,4 @@
+# vgg + cifar10  
 using Flux, Metalhead
 using Flux: onehotbatch, onecold, crossentropy, throttle
 using Metalhead: trainimgs
@@ -5,91 +6,92 @@ using Images: channelview
 using Statistics: mean
 using Base.Iterators: partition
 using CuArrays   # 使用GPU
-
+using BSON: @save
+include "net/vgg.jl"
 
 # VGG16 and VGG19 models
-vgg16() = Chain(
-  Conv((3, 3), 3 => 64, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(64),
-  Conv((3, 3), 64 => 64, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(64),
-  x -> maxpool(x, (2, 2)),
-  Conv((3, 3), 64 => 128, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(128),
-  Conv((3, 3), 128 => 128, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(128),
-  x -> maxpool(x, (2,2)),
-  Conv((3, 3), 128 => 256, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(256),
-  Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(256),
-  Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(256),
-  x -> maxpool(x, (2, 2)),
-  Conv((3, 3), 256 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  x -> maxpool(x, (2, 2)),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  x -> maxpool(x, (2, 2)),
-  x -> reshape(x, :, size(x, 4)),
-  Dense(512, 4096, relu),
-  Dropout(0.5),
-  Dense(4096, 4096, relu),
-  Dropout(0.5),
-  Dense(4096, 10),
-  softmax) |> gpu
+# vgg16() = Chain(
+#   Conv((3, 3), 3 => 64, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(64),
+#   Conv((3, 3), 64 => 64, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(64),
+#   x -> maxpool(x, (2, 2)),
+#   Conv((3, 3), 64 => 128, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(128),
+#   Conv((3, 3), 128 => 128, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(128),
+#   x -> maxpool(x, (2,2)),
+#   Conv((3, 3), 128 => 256, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(256),
+#   Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(256),
+#   Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(256),
+#   x -> maxpool(x, (2, 2)),
+#   Conv((3, 3), 256 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   x -> maxpool(x, (2, 2)),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   x -> maxpool(x, (2, 2)),
+#   x -> reshape(x, :, size(x, 4)),
+#   Dense(512, 4096, relu),
+#   Dropout(0.5),
+#   Dense(4096, 4096, relu),
+#   Dropout(0.5),
+#   Dense(4096, 10),
+#   softmax) |> gpu
 
-vgg19() = Chain(
-  Conv((3, 3), 3 => 64, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(64),
-  Conv((3, 3), 64 => 64, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(64),
-  x -> maxpool(x, (2, 2)),
-  Conv((3, 3), 64 => 128, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(128),
-  Conv((3, 3), 128 => 128, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(128),
-  x -> maxpool(x, (2, 2)),
-  Conv((3, 3), 128 => 256, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(256),
-  Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(256),
-  Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(256),
-  Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
-  x -> maxpool(x, (2, 2)),
-  Conv((3, 3), 256 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  x -> maxpool(x, (2, 2)),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  BatchNorm(512),
-  Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-  x -> maxpool(x, (2, 2)),
-  x -> reshape(x, :, size(x, 4)),
-  Dense(512, 4096, relu),
-  Dropout(0.5),
-  Dense(4096, 4096, relu),
-  Dropout(0.5),
-  Dense(4096, 10),
-  softmax) |> gpu
+# vgg19() = Chain(
+#   Conv((3, 3), 3 => 64, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(64),
+#   Conv((3, 3), 64 => 64, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(64),
+#   x -> maxpool(x, (2, 2)),
+#   Conv((3, 3), 64 => 128, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(128),
+#   Conv((3, 3), 128 => 128, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(128),
+#   x -> maxpool(x, (2, 2)),
+#   Conv((3, 3), 128 => 256, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(256),
+#   Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(256),
+#   Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(256),
+#   Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
+#   x -> maxpool(x, (2, 2)),
+#   Conv((3, 3), 256 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   x -> maxpool(x, (2, 2)),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   BatchNorm(512),
+#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
+#   x -> maxpool(x, (2, 2)),
+#   x -> reshape(x, :, size(x, 4)),
+#   Dense(512, 4096, relu),
+#   Dropout(0.5),
+#   Dense(4096, 4096, relu),
+#   Dropout(0.5),
+#   Dense(4096, 10),
+#   softmax) |> gpu
 
 # Function to convert the RGB image to Float64 Arrays
 small = Chain(
@@ -114,9 +116,9 @@ imgs = [getarray(X[i].img) for i in 1:50000]  # 32*32
 labels = onehotbatch([X[i].ground_truth.class for i in 1:50000],1:10)
 println("imgs: ", size(imgs))
 # Partition into batches of size 1000, img size 32*32
-train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 2)]  # 49
+train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 20)]  # 49
 # train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)  # 49*10=490
-# train = cat(train, train, train, train, train, train, dims=1) 
+train = cat(train, train, dims=1) 
 train = gpu.(train)  # |> gpu   # 把所有的数据都加载到GPU里了，不是bacth模式的
 println("train: ", size(train)[1], " batch, bs:", size(train[1][1]))
 valset = collect(49001:50000)
@@ -129,7 +131,6 @@ m = vgg16()
 # m = small
 
 loss(x, y) = crossentropy(m(x), y)
-
 accuracy(x, y) = mean(onecold(m(x), 1:10) .== onecold(y, 1:10))
 
 # Defining the callback and the optimizer
@@ -138,6 +139,8 @@ opt = ADAM()
 
 # Starting to train models
 Flux.train!(loss, params(m), train, opt, cb = evalcb)
+# @save "mymodel.bson" m    # save model to file 
+
 
 # Fetch the test data from Metalhead and get it into proper shape.
 # CIFAR-10 does not specify a validation set so valimgs fetch the testdata instead of testimgs
@@ -156,9 +159,10 @@ Flux.train!(loss, params(m), train, opt, cb = evalcb)
 accuracy(valX, valY) = 0.614
   PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND                                                                                                
 20932 test      20   0 4325636 3.290g  93744 R 569.1 21.1  85:37.60 julia -q vgg.jl
+accuracy(valX, valY) = 0.588
 
 small CPU, GPU上可以跑起来
-vgg16 CPU上可以跑起来， bs=10, train 不能大， 不然会溢出
+vgg16 CPU, GPU上可以跑起来， bs=20, train 不能大， 不然会溢出
 
 
 =#

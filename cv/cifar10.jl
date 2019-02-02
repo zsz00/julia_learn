@@ -1,4 +1,4 @@
-# vgg + cifar10  
+# cifar10 + vgg
 using Flux, Metalhead
 using Flux: onehotbatch, onecold, crossentropy, throttle
 using Metalhead: trainimgs
@@ -8,92 +8,8 @@ using Base.Iterators: partition
 using CuArrays   # 使用GPU
 using BSON: @save
 include("nets/vgg.jl")
+include("nets/small.jl")
 
-# VGG16 and VGG19 models
-# vgg16() = Chain(
-#   Conv((3, 3), 3 => 64, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(64),
-#   Conv((3, 3), 64 => 64, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(64),
-#   x -> maxpool(x, (2, 2)),
-#   Conv((3, 3), 64 => 128, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(128),
-#   Conv((3, 3), 128 => 128, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(128),
-#   x -> maxpool(x, (2,2)),
-#   Conv((3, 3), 128 => 256, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(256),
-#   Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(256),
-#   Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(256),
-#   x -> maxpool(x, (2, 2)),
-#   Conv((3, 3), 256 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   x -> maxpool(x, (2, 2)),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   x -> maxpool(x, (2, 2)),
-#   x -> reshape(x, :, size(x, 4)),
-#   Dense(512, 4096, relu),
-#   Dropout(0.5),
-#   Dense(4096, 4096, relu),
-#   Dropout(0.5),
-#   Dense(4096, 10),
-#   softmax) |> gpu
-
-# vgg19() = Chain(
-#   Conv((3, 3), 3 => 64, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(64),
-#   Conv((3, 3), 64 => 64, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(64),
-#   x -> maxpool(x, (2, 2)),
-#   Conv((3, 3), 64 => 128, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(128),
-#   Conv((3, 3), 128 => 128, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(128),
-#   x -> maxpool(x, (2, 2)),
-#   Conv((3, 3), 128 => 256, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(256),
-#   Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(256),
-#   Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(256),
-#   Conv((3, 3), 256 => 256, relu, pad=(1, 1), stride=(1, 1)),
-#   x -> maxpool(x, (2, 2)),
-#   Conv((3, 3), 256 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   x -> maxpool(x, (2, 2)),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   BatchNorm(512),
-#   Conv((3, 3), 512 => 512, relu, pad=(1, 1), stride=(1, 1)),
-#   x -> maxpool(x, (2, 2)),
-#   x -> reshape(x, :, size(x, 4)),
-#   Dense(512, 4096, relu),
-#   Dropout(0.5),
-#   Dense(4096, 4096, relu),
-#   Dropout(0.5),
-#   Dense(4096, 10),
-#   softmax) |> gpu
-
-# Function to convert the RGB image to Float64 Arrays
 small = Chain(
   Conv((3,3), 3=>16, relu),  # 卷积层， relu激活函数
   x -> maxpool(x, (2,2)),    # 匿名函数， 最大池化
@@ -107,6 +23,7 @@ small = Chain(
   Dense(256, 10),    # 全连接层， 组合应用特征，完成 分类任务。288
   softmax) |> gpu
 
+# Function to convert the RGB image to Float64 Arrays
 getarray(X) = Float64.(permutedims(channelview(X), (2, 3, 1)))  # RGB转换为BGR
 
 # Fetching the train and validation data and getting them into proper shape
@@ -125,10 +42,9 @@ valset = collect(49001:50000)
 valX = cat(imgs[valset]..., dims = 4) |> gpu
 valY = labels[:, valset] |> gpu
 
-# Defining the loss and accuracy functions
-
-m = vgg16()
-# m = small
+# Defining the model, loss and accuracy functions
+# m = vgg16() |> gpu
+m = small_1 |> gpu
 
 loss(x, y) = crossentropy(m(x), y)
 accuracy(x, y) = mean(onecold(m(x), 1:10) .== onecold(y, 1:10))

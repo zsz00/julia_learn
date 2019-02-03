@@ -12,19 +12,6 @@ using BSON: @save
 include("nets/resnet.jl")
 
 
-small = Chain(
-  Conv((3,3), 3=>16, relu),  # 卷积层， relu激活函数
-  x -> maxpool(x, (2,2)),    # 匿名函数， 最大池化
-  Conv((3,3), 16=>32, relu), 
-  Conv((3,3), 32=>64, relu),
-  x -> maxpool(x, (2,2)), 
-  Conv((1,1), 64=>128, relu),
-  Conv((3,3), 128=>256, relu),
-  x -> maxpool(x, (2,2)),   
-  x -> reshape(x, :, size(x, 4)),
-  Dense(256, 10),    # 全连接层， 组合应用特征，完成 分类任务。288
-  softmax) |> gpu
-
 # Function to convert the RGB image to Float64 Arrays
 getarray(X) = Float64.(permutedims(channelview(X), (2, 3, 1)))  # RGB转换为BGR
 
@@ -36,6 +23,7 @@ labels = onehotbatch([X[i].ground_truth.class for i in 1:50000],1:10)
 println("imgs: ", size(imgs))
 # Partition into batches of size 1000, img size 32*32
 train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:49000, 10)]  # 49
+println("11: ", size(train)[1], " batch, bs:", size(train[1][1]))
 # train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)  # 49*10=490
 # train = cat(train, train, dims=1) 
 train = gpu.(train)  # |> gpu   # 把所有的数据都加载到GPU里了，不是bacth模式的
@@ -80,8 +68,15 @@ accuracy(valX, valY) = 0.614
 20932 test      20   0 4325636 3.290g  93744 R 569.1 21.1  85:37.60 julia -q vgg.jl
 accuracy(valX, valY) = 0.588
 
-small CPU, GPU上可以跑起来
-vgg16 CPU, GPU上可以跑起来， bs=20, train 不能大， 不然会溢出
+small, vgg16, resnet 在CPU, GPU上都可以跑起来， bs=20, train 不能大， 不然会溢出
 
+repeat data 
+保存模型， 加载预训练模型
+间隔 val  
+loss曲线画图
+
+参考：
+https://github.com/FluxML/Metalhead.jl
+https://github.com/FluxML/model-zoo
 
 =#

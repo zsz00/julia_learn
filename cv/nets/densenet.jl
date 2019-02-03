@@ -1,4 +1,5 @@
 using Flux
+using Flux: @treelike
 
 struct Bottleneck
   layer

@@ -7,7 +7,7 @@ cv2 = pyimport("cv2")
 
 # img_path = s"C:\zsz\ML\code\DL\img_tools\test\img\2\2.jpg"
 # img_path = s"stitcher\test\imgs\1.jpg"
-# img = cv2.imread(img_path)  # 新版
+# img = cv2.imread(img_path)  # 新版支持
 # img = load(img_path)
 # img = np.ndarray(img)
 # plt.imshow(img); plt.show()   # WIN10 上显示有问题, 弹Qt的报错.

@@ -23,13 +23,14 @@ labels = onehotbatch([X[i].ground_truth.class for i in 1:50000],1:10)
 println("imgs: ", size(imgs))
 # Partition into batches of size 1000, img size 32*32
 train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:4900, 10)]  # 4900
+println("11: ", size(train)[1], " batch, bs:", size(train[1][1]))
 
 # train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)  # 49*10=490
 # train = cat(train, train, dims=1) 
-# train = Iterators.repeat(train, 1)
-train = Iterators.repeated(train, 20)
-
-# println("11: ", size(train)[1], " batch, bs:", size(train[1][1]))
+train = Iterators.repeat(train, 10)
+# train = Iterators.repeated(train, 10)
+# train = collect(train)
+println("train-----: ", typeof(train))
 # train = gpu.(train)  # |> gpu   # 把所有的数据都加载到GPU里了，不是bacth模式的
 # println("train: ", size(train)[1], " batch, bs:", size(train[1][1]))
 valset = collect(49001:50000)
@@ -45,7 +46,7 @@ loss(x, y) = crossentropy(m(x), y)
 accuracy(x, y) = mean(onecold(m(x), 1:10) .== onecold(y, 1:10))
 
 # Defining the callback and the optimizer
-evalcb = throttle(() -> @show(accuracy(valX, valY)), 100)
+evalcb = throttle(() -> @show(accuracy(valX, valY)), 10)
 opt = ADAM()
 
 # Starting to train models
@@ -73,6 +74,7 @@ accuracy(valX, valY) = 0.588
 small, vgg16, resnet50 在CPU, GPU[win10, ubuntu18.04]上都可以跑起来. 2019.2.2
 bs=20, train 不能大， 不然会溢出
 
+------------------------
 repeat data 
 保存模型， 加载预训练模型
 间隔 val  
@@ -82,4 +84,6 @@ loss曲线画图
 https://github.com/FluxML/Metalhead.jl
 https://github.com/FluxML/model-zoo
 
+问题：
+应为用户少，稳定性不够，工具链不完善，资料少。
 =#

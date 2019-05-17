@@ -59,7 +59,7 @@ Flux.train!(loss, params(m), train, opt, cb = evalcb)
 
 # 怎么repeat   ??
 #=
-accuracy(tX, tY) = 0.865  60*4
+accuracy(tX, tY) = 0.865  60*4= batch_szie
 accuracy(tX, tY) = 0.904  60*6
 accuracy(tX, tY) = 0.935  60*12=720
 accuracy(tX, tY) = 0.952  60*12*12=8640

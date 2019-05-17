@@ -5,8 +5,8 @@ using Metalhead: trainimgs
 using Images: channelview
 using Statistics: mean
 using Base.Iterators: partition
-# using CuArrays   # 使用GPU
-using BSON: @save
+using CuArrays   # 使用GPU
+# using BSON: @save
 # include("nets/vgg.jl")
 include("nets/small.jl")
 include("nets/resnet.jl")
@@ -26,13 +26,14 @@ train = [(cat(imgs[i]..., dims=4), labels[:,i]) for i in partition(1:4900, 10)] 
 println("11: ", size(train)[1], " batch, bs:", size(train[1][1]))
 
 # train = cat(train, train, train, train, train, train, train, train, train, train, dims=1)  # 49*10=490
-# train = cat(train, train, dims=1) 
-train = Iterators.repeat(train, 10)
+# train = cat(train, dims=1) 
+# train = Iterators.repeat(train, 10)    # ???
 # train = Iterators.repeated(train, 10)
 # train = collect(train)
-println("train-----: ", typeof(train))
+# println("train-----: ", typeof(train))
 # train = gpu.(train)  # |> gpu   # 把所有的数据都加载到GPU里了，不是bacth模式的
-# println("train: ", size(train)[1], " batch, bs:", size(train[1][1]))
+train = train |> gpu
+println("train: ", size(train)[1], " batch, bs:", size(train[1][1]))
 valset = collect(49001:50000)
 valX = cat(imgs[valset]..., dims = 4) |> gpu
 valY = labels[:, valset] |> gpu

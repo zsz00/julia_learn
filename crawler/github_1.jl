@@ -4,11 +4,15 @@ using Gumbo  # 解析网页元素
 # using DataFrames
 # using AbstractTrees
 using DataFrames
+import Dates
+
 
 function stars()
     # url_1 = "https://github.com/search?l=r&q=stars%3A%3E1000&s=updated&type=Repositories"
-    langs = ["matlab", "r", "lua", "javascript", "swift", "php", "c", "cpp", "java", "python", "julia", "rust", "typescript", "go"]
-    sort!(langs)
+    # langs = ["matlab", "r", "lua", "javascript", "swift", "php", "c", "cpp", "java", "python", "julia", "rust", "typescript", "go"]
+    langs = ["julia", "matlab", "r", "swift", "python", "rust", "typescript", "go"]
+    # langs = ["julia", "matlab"]
+    # sort!(langs)
     all = []
     for pl in langs
         print(pl, "\t")
@@ -49,14 +53,16 @@ function stars()
         end
         push!(all, lang)
         print("\n")
-        sleep(30)
+        sleep(20)
     end
     return all
 end
 
 all = stars()
 data = DataFrame(all)
-print(data)
+# data = DataFrame(all[:, 2:end]', Symbol.(all[:, 1]))
+println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
+println(data)
 
 
 #=
@@ -66,5 +72,6 @@ print(data)
 │ 3   │ 199    │ 584  │ 626  │ 30007      │ 3480  │ 6338  │ 5852  │ 6518  │ 13767 │ 16949  │ 138   │ 1204 │ 2417       │ 5975  │
 │ 4   │ 11     │ 25   │ 57   │ 4412       │ 585   │ 762   │ 673   │ 778   │ 2036  │ 1949   │ 5     │ 142  │ 385        │ 1021  │
 │ 5   │ 1      │ 1    │ 4    │ 345        │ 27    │ 20    │ 21    │ 43    │ 70    │ 82     │ 1     │ 6    │ 29         │ 60    │
+
 
 =#

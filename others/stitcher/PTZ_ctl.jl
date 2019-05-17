@@ -2,7 +2,7 @@
 # 在linux上需要替换下默认的内核驱动(https://stackoverflow.com/questions/13419691/accessing-a-usb-device-with-libusb-1-0-as-a-non-root-user)
 # 天津中安视通 ZA-PT520云台
 using LibFTD2XX  # add https://github.com/Gowerlabs/LibFTD2XX.jl.git
-
+# Julia wrapper for FTD2XX driver.
 
 function init()
     # 初始化

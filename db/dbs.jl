@@ -17,7 +17,7 @@ end
 
 
 function xlsx()
-    data = DataFrame(load(s"C:\zsz\ML\code\julia\db/star.xlsx", "Sheet2"))  # 读取xlsx文件
+    data = DataFrame(load(s"C:\zsz\ML\code\julia\julia_learn\db\star.xlsx", "Sheet2"))  # 读取xlsx文件
 
     row, col = size(data)
     num_1 = Int(col/6)

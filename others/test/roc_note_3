@@ -22,5 +22,6 @@ python plot3_new.py ../../test_1/feat/top_10_2/20190508090818_iccv19-Features-em
 ../../test_1/feat/top_10_2/20190613123446_retina-se-bn-24.bin
 
 
+export CUDA_VISIBLE_DEVICES=0,1
 
 

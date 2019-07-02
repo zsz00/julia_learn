@@ -1,4 +1,4 @@
-# https://github.com/JuliaStats/Clustering.jl   julia聚类  (K-Means, 层次聚类)
+# https://github.com/JuliaStats/Clustering.jl   julia聚类  (包含K-Means, 层次聚类)
 using Clustering
 using NearestNeighbors
 using Makie  # plot

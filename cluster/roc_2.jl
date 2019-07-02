@@ -45,7 +45,7 @@ function get_label_mat_2(mat, idx, idx_T,labels, threshold)
     count_P = Threads.Atomic{Int64}(0)
     count_TP = Threads.Atomic{Int64}(0)
     count_FP = Threads.Atomic{Int64}(0)
-    Threads.@threads for i in range(1,labels_size[1],step=1)
+    Threads.@threads for i in range(1, labels_size[1], step=1)
         sim = mat[i,1:end]
         idx_p_1 = findall(x-> x>threshold, sim)
         # println("idx_p_1:", size(idx_p_1), " ", idx_p_1)

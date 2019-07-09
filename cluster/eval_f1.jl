@@ -65,7 +65,7 @@ function f_score(cluster, labels, imglist)
                         # @printf("%s, %s\n", i, j)
                         pics = [imglist[i], imglist[j]]
                         dir_1 = "/data/yongzhang/cluster/test_2/"
-                        output = dir_1 * "$i.jpg"
+                        output = dir_1 * "$i-$j.jpg"
                         # merge(pics, "FP, $i, $j", output) 
                         fn1 = joinpath(img_sfx, imglist[i])
                         img1 = load(fn1)  # 在ubuntu14.04上load png img报错, 
@@ -73,8 +73,8 @@ function f_score(cluster, labels, imglist)
                         println(fn1, "  ", fn2)
                         img2 = load(fn2)
                         imshow(img2)
-                        grid = pad_display(img1, img2)  # 
-                        # # grid = StackedView(parent(img1), parent(img2))
+                        grid = pad_display(img1, img2)  # OK
+                        # grid = StackedView(img1, img2)  # 
                         # # ImageDraw.draw!(grid)
                         imshow(grid)
                         save(output, grid)

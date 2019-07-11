@@ -6,7 +6,7 @@ using ProgressMeter
 
 np = pyimport("numpy")
 
-function get_label_mat_2(mat, idx, labels, threshold)
+function get_scores(mat, idx, labels, threshold)
     count_T = Threads.Atomic{Int64}(0)
     count_F = 181560886682  # Threads.Atomic{Int64}(0)
     count_P = Threads.Atomic{Int64}(0)
@@ -100,7 +100,7 @@ function main()
     labels = np.load(label_file)
 
     threshold = 0.4
-    get_label_mat_2(mat, idx, labels, threshold)
+    get_scores(mat, idx, labels, threshold)
 
 end
 

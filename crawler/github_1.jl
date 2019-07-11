@@ -53,7 +53,7 @@ function stars()
         end
         push!(all, lang)
         print("\n")
-        sleep(20)
+        sleep(40)
     end
     return all
 end

@@ -8,7 +8,7 @@ using Plots
 
 np = pyimport("numpy")
 
-function get_label_mat_1(labels)
+function get_scores1(labels)
     count_T = Threads.Atomic{Int64}(0)
     count_F = 332576170328 # Threads.Atomic{Int64}(0)  # 181560886682  # 332576170328
     idx_T = []
@@ -41,7 +41,7 @@ function get_label_mat_1(labels)
 end
 
 
-function get_label_mat_2(mat, idx, idx_T,labels, threshold)
+function get_scores(mat, idx, idx_T,labels, threshold)
     count_P = Threads.Atomic{Int64}(0)
     count_TP = Threads.Atomic{Int64}(0)
     count_FP = Threads.Atomic{Int64}(0)
@@ -130,7 +130,7 @@ function roc()
     # count_T,count_F,idx_1_3 = 11162233,332576170328
 
     for (i, threshold) in enumerate(thresholds)
-        count_TP, count_FP = get_label_mat_2(mat, idx,idx_T,labels, threshold)
+        count_TP, count_FP = get_scores(mat, idx,idx_T,labels, threshold)
         # tar=TPR = TP/P  far=FPR = FP/F
         TPR[i] = tpr = count_TP/count_T
         FPR[i] = fpr = count_FP/count_F
@@ -187,8 +187,8 @@ function main()
     idx = np.load(idx_file)
     labels = np.load(label_file)
     threshold = 0.6
-    count_T,count_F,idx_T = get_label_mat_1(labels)
-    count_TP,count_FP = get_label_mat_2(mat, idx,idx_T,labels, threshold)  # 计算一个阈值的
+    count_T,count_F,idx_T = get_scores1(labels)
+    count_TP,count_FP = get_scores(mat, idx,idx_T,labels, threshold)  # 计算一个阈值的
     tpr = count_TP/count_T
     fpr = count_FP/count_F
     println("threshold:", threshold, " TPR:", tpr, " FPR:", fpr, " fp:", count_FP)
@@ -206,7 +206,7 @@ function temp()
     dir_2 = "/data/yongzhang/cluster/test_1"
     label_file = joinpath(dir_2, "deepglint.npy")
     labels = np.load(label_file)
-    count_T,count_F,idx_T = get_label_mat_1(labels)
+    count_T,count_F,idx_T = get_scores1(labels)
     println("count_F:", count_F)
 end
 

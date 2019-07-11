@@ -8,7 +8,7 @@ using Plots
 
 np = pyimport("numpy")
 
-function get_label_mat_2(mat, idx, labels, threshold)
+function get_scores(mat, idx, labels, threshold) 
     count_T = Threads.Atomic{Int64}(0)
     count_F = 330145575217  # Threads.Atomic{Int64}(0)  # 330145575217  # 332576170328
     count_P = Threads.Atomic{Int64}(0)
@@ -121,7 +121,7 @@ function roc()
     # label_file = joinpath(dir_2, "deepglint.npy")
     label_file = joinpath(dir_2, "deepglint_6000.txt")  # deepglint_1  deepglint_900
 
-    mat = np.load(mat_file)   # 会比在py例加载慢很多, 内存使用多
+    mat = np.load(mat_file)   # 加载会比在py例加载慢很多, 内存使用多
     idx = np.load(idx_file)
     # labels = np.load(label_file)
     labels = readlines(label_file)
@@ -140,7 +140,7 @@ function roc()
     FPR = Array{Float64}(undef, n_thresholds)
     TPR = Array{Float64}(undef, n_thresholds)
     for (i, threshold) in enumerate(thresholds)
-        tpr, fpr, count_FP = get_label_mat_2(mat, idx, labels, threshold)
+        tpr, fpr, count_FP = get_scores(mat, idx, labels, threshold)
         # tar = tpr = 1-thresholds[i]  
         # far = fpr = 1-thresholds[i] =1e-8
         TPR[i] = tpr
@@ -185,7 +185,7 @@ function main()
     dir_2 = "/data/yongzhang/cluster/test_1"
     # mat_file = joinpath(dir_2, "out_dengqili/out_5/mat_2.npy")  # top_k=1000
     # idx_file = joinpath(dir_2, "out_dengqili/out_5/idx_2.npy")
-    mat_file = joinpath(dir_2, "out_dengqili/out_1/mat.npy")  # top_k=1000
+    mat_file = joinpath(dir_2, "out_dengqili/out_1/mat.npy")  # top_k=1000.  相似度矩阵
     idx_file = joinpath(dir_2, "out_dengqili/out_1/idx.npy")
     label_file = joinpath(dir_2, "deepglint.npy")
 
@@ -193,7 +193,7 @@ function main()
     idx = np.load(idx_file)
     labels = np.load(label_file)
     threshold = 0.6
-    tpr, fpr, count_FP = get_label_mat_2(mat, idx, labels, threshold)  # 计算一个阈值的
+    tpr, fpr, count_FP = get_scores(mat, idx, labels, threshold)  # 计算一个阈值的
 
 end
 
@@ -207,8 +207,8 @@ function main2()
 end
 
 
-# @time main()
-@time main2()
+@time main()
+# @time main2()
 
 #=
 label: 1862120   -1 代表是干扰项,-2代表是删除的样本,其他的就是类别id

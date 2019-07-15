@@ -9,39 +9,44 @@ using Plots
 np = pyimport("numpy")
 
 function get_scores1(labels)
+    # 2h.  threads 之后 很耗内存. 3min, 5min
+    #= 
+    count_T:7201572 count_F:37072945125(0,)  
+    234.432205 seconds (12.68 M allocations: 1.122 TiB, 10.55% gc time)
+    =#
     count_T = Threads.Atomic{Int64}(0)
-    count_F = 332576170328 # Threads.Atomic{Int64}(0)  # 181560886682  # 332576170328
+    count_F = Threads.Atomic{Int64}(0)  # 181560886682  # 332576170328
     idx_T = []
     labels_size = size(labels)   # (1862120, 1)
-    # println("threshold:", threshold, " size(mat):", size(mat), " typeof(labels):", typeof(labels))
+    println("typeof(labels):", typeof(labels), " labels_size:", labels_size[1])
     Threads.@threads for i in range(1,labels_size[1],step=1)  # @showprogress  Threads.@threads
-        if labels[i] in (-1,-2)  # -1,-2
+        if labels[i] == -1
             continue
         end
         # println(i, " id:", labels[i], typeof(labels[i]))
-        # idx_1 = findall(x->(x==labels[i]) && (x !=-2), labels)  # 正样本  T
-        # idx_1_1 = Tuple.(idx_1)   # idx
-        # # println("idx_1:", size(idx_1), " ", idx_1_1[1])  # , idx_1_1, "\n",
-        # idx_1_2=findall(x->x>(i,1), idx_1_1)
-        # idx_1_3 = idx_1_1[idx_1_2]
-        # # println("idx_1_3:", size(idx_1_3), " ")  # , idx_1_3
-        # push!(idx_T,idx_1_3)
-        # Threads.atomic_add!(count_T, length(idx_1_3))
+        idx_1 = findall(x->(x==labels[i]) , labels[i:end])  # 正样本  T
+        idx_1_1 = idx_1.+i   # idx   Tuple
+        # println("idx_1:", size(idx_1), " ", idx_1_1[1]) 
+        # push!(idx_T,idx_1_1)
+        # count_T += length(idx_1_1)
+        Threads.atomic_add!(count_T, length(idx_1_1))
 
-        idx_2_1 = findall(x->(x!=labels[i]) && (x !=-2), labels[i:end])   # 负样本  F  慢,只用算一次. 332576170328
-        idx_2_2 = findall(x->(x==-1), labels[1:i])
+        idx_2_1 = findall(x->(x!=labels[i]), labels[i:end])   # 负样本  F  慢,只用算一次. 332576170328
+        # idx_2_2 = findall(x->(x==-1), labels[1:i])
         # idx_2_1 = Tuple.(idx_2)
         # idx_2_2=findall(x->x>(i,1), idx_2_1)
         # idx_2_3 = idx_2_1[idx_2_2]
-        Threads.atomic_add!(count_F, length(idx_2_2)+length(idx_2_1))
+        # count_F += length(idx_2_1)
+        Threads.atomic_add!(count_F, length(idx_2_1))
     end
     count_T = count_T.value
     count_F = count_F.value
+    println("count_T:", count_T, " count_F:", count_F, size(idx_T))
     return count_T,count_F,idx_T 
 end
 
 
-function get_scores(mat, idx, idx_T,labels, threshold)
+function get_scores(mat, idx, idx_T, labels, threshold)
     count_P = Threads.Atomic{Int64}(0)
     count_TP = Threads.Atomic{Int64}(0)
     count_FP = Threads.Atomic{Int64}(0)
@@ -118,10 +123,7 @@ function roc()
     labels = hcat(labels)
 
     thresholds = Array(range(0.99,0.01, step=-0.01))
-    # thresholds = Array(range(0.44,0.42, step=-0.005))
-    # thresholds = Array(range(0.37,0.35, step=-0.005))
-    # thresholds = [0.573, 0.432, 0.37]
-    # thresholds = Array(range(0.485,0.465, step=-0.005))
+
     n_thresholds = length(thresholds)
     FPR = Array{Float64}(undef, n_thresholds)
     TPR = Array{Float64}(undef, n_thresholds)
@@ -175,19 +177,21 @@ end
 
 
 function main()
-    # dir_2 = "/data/yongzhang/22/test_1"
-    dir_2 = "/data/yongzhang/cluster/test_1"
-    # mat_file = joinpath(dir_2, "out_dengqili/out_5/mat_2.npy")  # top_k=1000
-    # idx_file = joinpath(dir_2, "out_dengqili/out_5/idx_2.npy")
-    mat_file = joinpath(dir_2, "out_dengqili/out_1/mat.npy")  # top_k=1000
-    idx_file = joinpath(dir_2, "out_dengqili/out_1/idx.npy")
-    label_file = joinpath(dir_2, "deepglint.npy")
+    dir_2 = "/data/yongzhang/cluster/data_3/clean/out_disk_2_3"
+    mat_file = joinpath(dir_2, "disk_2_mat.npy")  # top_k=1000.  相似度矩阵
+    idx_file = joinpath(dir_2, "disk_2_idx.npy")
+    label_file = joinpath(dir_2, "labels_test_1_1.txt")
 
     mat = np.load(mat_file)   # 会比在py例加载慢很多, 内存使用多
     idx = np.load(idx_file)
-    labels = np.load(label_file)
+    # labels = np.load(label_file)
+    labels = readlines(label_file)
+    labels = [parse(Int,a) for a in labels]
+    labels = hcat(labels)
     threshold = 0.6
     count_T,count_F,idx_T = get_scores1(labels)
+    return 
+    
     count_TP,count_FP = get_scores(mat, idx,idx_T,labels, threshold)  # 计算一个阈值的
     tpr = count_TP/count_T
     fpr = count_FP/count_F
@@ -210,16 +214,17 @@ function temp()
     println("count_F:", count_F)
 end
 
-# @time main()
+@time main()
 # @time main2()
-@time temp()
+# @time temp()
 
 #=
 label: 1862120   -1 代表是干扰项,-2代表是删除的样本,其他的就是类别id
 评测的时候正样本就是所有》=0的类别的组合，负样本就是所有正样本*（正样本+干扰项）
 =#
 #=
-julia get_mat.jl 
+export JULIA_NUM_THREADS=4
+julia roc_2.jl 
 多线程的用 + 做count统计不准确, 输出的顺序不一样, 相关I/O的并行有问题. push!() 也是IO,并行会崩溃.
 可以用Threads.Atomic 做原子操作, 也是并行,但是会降低点速度(影响不大).
 mem:14G, 正常的

@@ -35,7 +35,7 @@ end
 
 
 city = "disk_2"
-out_dir = "/data/yongzhang/cluster/data_3/clean/out_$(city)_10/"
+out_dir = "/data/yongzhang/cluster/data_3/clean/out_$(city)_11/"
 label_file = joinpath(out_dir, "labels_test_1_1.txt")  #    new_labels
 new_labels_file = joinpath(out_dir, "labels_test_1_1_0.txt")
 labels = readlines(label_file)

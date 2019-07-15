@@ -180,7 +180,7 @@ end
 end
 
 
-function main()
+function main1()
     # dir_2 = "/data/yongzhang/22/test_1"
     dir_2 = "/data/yongzhang/cluster/test_1"
     # mat_file = joinpath(dir_2, "out_dengqili/out_5/mat_2.npy")  # top_k=1000
@@ -192,6 +192,26 @@ function main()
     mat = np.load(mat_file)   # 会比在py例加载慢很多, 内存使用多
     idx = np.load(idx_file)
     labels = np.load(label_file)
+    threshold = 0.6
+    tpr, fpr, count_FP = get_scores(mat, idx, labels, threshold)  # 计算一个阈值的
+
+end
+
+function main()
+    # dir_2 = "/data/yongzhang/22/test_1"
+    dir_2 = "/data/yongzhang/cluster/data_3/clean/out_disk_2_10"
+    # mat_file = joinpath(dir_2, "out_dengqili/out_5/mat_2.npy")  # top_k=1000
+    # idx_file = joinpath(dir_2, "out_dengqili/out_5/idx_2.npy")
+    mat_file = joinpath(dir_2, "mat.npy")  # top_k=1000.  相似度矩阵
+    idx_file = joinpath(dir_2, "idx.npy")
+    label_file = joinpath(dir_2, "labels_test_1_2.txt")
+
+    mat = np.load(mat_file)   # 会比在py例加载慢很多, 内存使用多
+    idx = np.load(idx_file)
+    # labels = np.load(label_file)
+    labels = readlines(label_file)
+    labels = [parse(Int,a) for a in labels]
+
     threshold = 0.6
     tpr, fpr, count_FP = get_scores(mat, idx, labels, threshold)  # 计算一个阈值的
 

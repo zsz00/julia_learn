@@ -85,10 +85,7 @@ function get_scores(mat, idx, labels, threshold)
     fpr = count_FP/count_F
     println(threshold, " count_T:", count_T, " count_F:", count_F," count_P:", count_P," count_TP:",count_TP," count_FP:", count_FP)
     # println("threshold:", threshold, " TPR:", tpr, " FPR:", fpr)
-    # h5write("fp_out/test_1.h5", "fp", fp)
-    # HDF5.h5open("fp_out/test_1.h5", "w") do file
-    #     write(file, "fp", fp)
-    # end
+
     #=
     tar=TPR = TP/T  far=FPR = FP/F
     =#

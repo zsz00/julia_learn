@@ -4,16 +4,16 @@ using PyCall
 using ProgressMeter
 using RecipesBase  # 画图
 using HDF5
-using Plots
+using GR  # Plots
 using Printf
-
+using FileIO, JSON
 
 np = pyimport("numpy")
 # from scipy.sparse import csr_matrix,save_npz,load_npz
 
 function get_scores(mat, idx, labels, threshold) 
     count_T = Threads.Atomic{Int64}(0)
-    count_F = 36179062068  # Threads.Atomic{Int64}(0)  # 3800771746  26974823212
+    count_F = 24997440284  # Threads.Atomic{Int64}(0)  # 3800771746  26974823212
     count_P = Threads.Atomic{Int64}(0)
     count_TP = Threads.Atomic{Int64}(0)
     count_FP = Threads.Atomic{Int64}(0)
@@ -123,9 +123,9 @@ function roc(mat, idx, labels)
         TPR[i] = tpr
         FPR[i] = fpr
         if round(fpr, digits=7)==1e-7
-            println(tpr, " @1e-7 ", fpr)
+            println("TPR:", tpr, " @1e-7 ", fpr, " threshold:", threshold)
         elseif round(fpr, digits=6)==1e-6
-            println(tpr, " @1e-6 ", fpr)
+            println("TPR:", tpr, " @1e-6 ", fpr, " threshold:", threshold)
         end
     end
     ROCData{eltype(thresholds)}(thresholds, FPR, TPR)
@@ -180,15 +180,14 @@ end
 
 function main()
     # dir_2 = "/data/yongzhang/22/test_1"
-    dir_2 = "/data/yongzhang/cluster/data_3/clean/out_disk_2_jxx_3"
+    dir_2 = "/data/yongzhang/cluster/data_3/clean/out_disk_2_jxx_4"
     dir_1 = "/data/yongzhang/cluster/data_3/clean/out_disk_2_jxx_2"
-    mat_file = joinpath(dir_2, "disk_2_jxx_mat.npy")  # top_k=1000.  相似度矩阵
+    mat_file = joinpath(dir_2, "disk_2_jxx_mat.npy")  # topk=1000.  (n,topk)的相似度矩阵
     idx_file = joinpath(dir_2, "disk_2_jxx_idx.npy")
     # label_file = joinpath(dir_2, "postproc_jxx_0.45.txt")  # labels_test_1_1
     label_file = joinpath(dir_1, "labels_test_1_1.txt")
     mat = np.load(mat_file)   # 会比在py例加载慢很多, 内存使用多
     idx = np.load(idx_file)
-    # csr = load_npz(fmat)
 
     # labels = np.load(label_file)
     labels = readlines(label_file)
@@ -198,9 +197,13 @@ function main()
     # tpr, fpr, count_FP = get_scores(mat, idx, labels, threshold)  # 计算一个阈值的
     # println("threshold:", threshold, " TPR:", tpr, " FPR:", fpr, " fp:", count_FP)
     rocdata = roc(mat, idx, labels)
-    # println(rocdata.FPR)
     # roc_curve(rocdata)
-    # # h5write("rocdata.h5", "rocdata", rocdata)
+    data = Dict("thresholds"=>rocdata.thresholds,"FPR"=>rocdata.FPR,"TPR"=>rocdata.TPR)
+    data_json = JSON.json(data)
+    open("rocdata.json", "w") do f
+        write(f, data_json)
+    end
+
     # plot!(rocdata)
     # savefig("myplot.png")
 end
@@ -221,14 +224,29 @@ end
 #=
 label: 1862120   -1 代表是干扰项,-2代表是删除的样本,其他的就是类别id
 评测的时候正样本就是所有》=0的类别的组合，负样本就是所有正样本*（正样本+干扰项）
-=#
-#=
+-----------------------------
+多线程 
 export JULIA_NUM_THREADS=40
 ENV["JULIA_NUM_THREADS"]=40
-julia get_mat.jl 
+julia roc_1.jl 
+
+先执行roc_2.jl算出F, 再通过roc_1.jl画图.  roc_note_4是结果记录
+可以把FP打出来,查看误识别
+-----------------------------
+1. threshold 为0时，达不到（1，1）. 
+因为mat是(n，topk),所以P，TP都小，小于T，特别是在threshold很低的时候. mat是(n,n)就可以达到(1,1)了。
+普通的阈值时TPR低，也是这个原因。 提高一下topk. topk=1000就行. 可以取出更多低相似度的mat值. 就可以画出漂亮的roc曲线了.
+2. 计算TPR,FPR很慢
+1371s=23min
+需要改成GPU版的
+3. 画图和存数有问题
+
+4. T,F,P的计算有问题
+
 
 
 -----------------------------
+
 
 
 =#

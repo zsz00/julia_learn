@@ -13,10 +13,51 @@ function get_scores1(labels)
     #= 
     labels_size:320066
     count_T:1802282 count_F:3800771746   
-
     count_T:7867148 count_F:26974823212 (0,)
-
     count_T:9104838 count_F:36179062068 (0,)
+    count_T:7729213 count_F:26770920387 (0,)
+    count_T:7412722 count_F:24997440284 (0,)
+    =#
+    count_T = Threads.Atomic{Int64}(0)
+    count_F = Threads.Atomic{Int64}(0)  # 
+    idx_T = []
+    labels_size = size(labels)   # (1862120, 1)
+    println("typeof(labels):", typeof(labels), " labels_size:", labels_size[1])
+    Threads.@threads for i in range(1,labels_size[1],step=1)  # @showprogress  Threads.@threads
+        if labels[i] == -1
+            continue
+        end
+        # println(i, " id:", labels[i], typeof(labels[i]))
+        idx_1 = findall(x->(x==labels[i]) , labels[i+1:end])  # 正样本  T
+        idx_1_1 = idx_1.+i   # idx   Tuple
+        # println("idx_1_1:", size(idx_1_1), " ", idx_1_1[1]) 
+        # push!(idx_T,idx_1_1)  # 有问题
+        # count_T += length(idx_1_1)
+        Threads.atomic_add!(count_T, length(idx_1_1))
+
+        idx_2_1 = findall(x->(x!=labels[i])&&(x!=-1), labels[i+1:end])   # 负样本  F  慢,只用算一次. 332576170328
+        # idx_2_2 = findall(x->(x==-1), labels[1:i])
+        # idx_2_1 = Tuple.(idx_2)
+        # idx_2_2=findall(x->x>(i,1), idx_2_1)
+        # idx_2_3 = idx_2_1[idx_2_2]
+        # count_F += length(idx_2_1)
+        Threads.atomic_add!(count_F, length(idx_2_1))
+    end
+    count_T = count_T.value
+    count_F = count_F.value
+    println("count_T:", count_T, " count_F:", count_F, " ", size(idx_T))
+    return count_T,count_F,idx_T 
+end
+
+function get_scores2(qurey, gallary)
+    # 2h.  threads 之后 很耗内存. 3min, 5min
+    #= 
+    labels_size:320066
+    count_T:1802282 count_F:3800771746   
+    count_T:7867148 count_F:26974823212 (0,)
+    count_T:9104838 count_F:36179062068 (0,)
+    count_T:7729213 count_F:26770920387 (0,)
+    count_T:7412722 count_F:24997440284 (0,)
     =#
     count_T = Threads.Atomic{Int64}(0)
     count_F = Threads.Atomic{Int64}(0)  # 
@@ -180,7 +221,7 @@ end
 
 
 function main()
-    dir_2 = "/data/yongzhang/cluster/data_3/clean/out_disk_2_jxx_3"
+    dir_2 = "/data/yongzhang/cluster/data_3/clean/out_disk_2_jxx_4"
     dir_1 = "/data/yongzhang/cluster/data_3/clean/out_disk_2_jxx_2"
     mat_file = joinpath(dir_2, "disk_2_jxx_mat.npy")  # top_k=1000.  相似度矩阵
     idx_file = joinpath(dir_2, "disk_2_jxx_idx.npy")

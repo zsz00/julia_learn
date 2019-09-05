@@ -8,6 +8,14 @@ np = pyimport("numpy")
 scipy = pyimport("scipy.sparse")
 load_npz = scipy."load_npz"
 
+
+# 求距离矩阵  哎
+function distance_1()
+    x = randn(100000, 512)   
+    mat = pairwise(CorrDist(), x, dims=1)  # CorrDist  Euclidean    # >10w时 Segmentation fault
+    println(size(mat))
+end
+
 # 求距离矩阵
 function get_mat()
     # x = features = np.load(raw"D:\download\features\512.fea.npy")
@@ -68,7 +76,8 @@ end
 
 # get_mat()
 # get_mat_2()
-cluster_1()
+# cluster_1()
+@time distance_1()
 
 #=
 

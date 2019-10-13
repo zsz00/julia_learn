@@ -4,14 +4,17 @@ using NearestNeighbors
 using Makie  # plot
 using PyCall
 using Distances 
+using RDatasets
 np = pyimport("numpy")
 scipy = pyimport("scipy.sparse")
 load_npz = scipy."load_npz"
 
 
-# 求距离矩阵  哎
+# 求距离矩阵 
 function distance_1()
-    x = randn(100000, 512)   
+    # x = randn(40000, 512)   
+    x = dataset("cluster", "plantTraits")   # 数据集中有missing, 返回的是DataFrame格式的数据
+    x = convert(Matrix, x[:, 2:end])
     mat = pairwise(CorrDist(), x, dims=1)  # CorrDist  Euclidean    # >10w时 Segmentation fault
     println(size(mat))
 end
@@ -78,6 +81,7 @@ end
 # get_mat_2()
 # cluster_1()
 @time distance_1()
+
 
 #=
 

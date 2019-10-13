@@ -5,7 +5,7 @@ using Gumbo  # 解析网页元素
 # using AbstractTrees
 using DataFrames
 import Dates
-
+using JLD2
 
 function stars()
     # url_1 = "https://github.com/search?l=r&q=stars%3A%3E1000&s=updated&type=Repositories"
@@ -58,11 +58,20 @@ function stars()
     return all
 end
 
-all = stars()
+# all = stars()
+# @save "all.jld2" all
+@load "all.jld2" all
 data = DataFrame(all)
-# data = DataFrame(all[:, 2:end]', Symbol.(all[:, 1]))
-println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
 println(data)
+
+star = DataFrame(data[2:end, :])
+name = Symbol.(data[1:1, :])
+name = convert(Matrix, name)
+name = reshape(name, (8,))
+names!(star, name)  # 要求shape匹配. 4×8 DataFrame,8-element Array{Symbol,1} 
+
+println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
+println(star)
 
 
 #=

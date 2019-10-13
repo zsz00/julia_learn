@@ -62,7 +62,6 @@ end
 # @save "all.jld2" all
 @load "all.jld2" all
 data = DataFrame(all)
-println(data)
 
 star = DataFrame(data[2:end, :])
 name = Symbol.(data[1:1, :])

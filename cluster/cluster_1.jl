@@ -22,7 +22,7 @@ end
 
 # 求距离矩阵
 function distance_2()
-    # x = features = np.load(raw"D:\download\features\512.fea.npy")
+    # dist + sort
     # x = np.load("/data5/yongzhang/cluster/test_2/valse19.npy")
     # npzwrite("x.npy", x)
     x = npzread("x.npy")
@@ -39,7 +39,7 @@ end
 
 # 求距离矩阵
 function distance_3()
-    # knn
+    # knn, kdtree
     x = npzread("x.npy")
     println("size(x):", size(x), " ", typeof(x))
     X = transpose(x)  # 矩阵转置, 也可以用 x'
@@ -50,10 +50,32 @@ function distance_3()
     query = X
     println("knn...")
     kdtree = KDTree(gallery, leafsize=4)   # 同index.add(gallery) 
-    idxs, dists = knn(kdtree, query, k, true)  # 单线程的   # query查询
+    idxs, dists = knn(kdtree, query, k, true)  # 单线程的, 很慢.  # query查询. (70184,)
+    dists = vcat((hcat(i...) for i in dists)...)  # 转换 shape
     println("idxs: $(size(idxs)), dists: $(size(dists))")
     println(dists[1])
     npzwrite("dist_kdtree.npy", dists)
+    # 1081.681778 seconds (21.04 M allocations: 1.623 GiB, 0.05% gc time)
+end
+
+# 求距离矩阵
+function distance_4()
+    # Rayuela.jl ,   PQ
+    x = npzread("x.npy")
+    println("size(x):", size(x), " ", typeof(x))
+    X = transpose(x)  # 矩阵转置, 也可以用 x'
+    X = convert(Array, X)
+    println("size(x):", size(X), " ", typeof(X))
+    k = 100
+    gallery = X
+    query = X
+    println("knn...")
+    # ...
+    dists = vcat((hcat(i...) for i in dists)...)  # 转换 shape
+    println("idxs: $(size(idxs)), dists: $(size(dists))")
+    println(dists[1])
+    npzwrite("dist_kdtree.npy", dists)
+    #  
 end
 
 

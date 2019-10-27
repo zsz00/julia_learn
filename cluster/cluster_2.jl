@@ -1,8 +1,4 @@
 # julia聚类, 层次聚类
-# using Clustering
-# using Distances
-# using NearestNeighbors
-# using Makie  # plot
 using Dates
 using PyCall
 np = pyimport("numpy")

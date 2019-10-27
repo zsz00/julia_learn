@@ -1,13 +1,14 @@
-# https://github.com/JuliaStats/Clustering.jl   julia聚类  (包含K-Means, 层次聚类)
-using Clustering
+# https://github.com/JuliaStats/Clustering.jl   julia聚类 
+# using Clustering
 using NearestNeighbors
-using Makie  # plot
+# using Makie  # plot
 using PyCall
 using Distances 
-using RDatasets
+# using RDatasets
+using NPZ
 np = pyimport("numpy")
-scipy = pyimport("scipy.sparse")
-load_npz = scipy."load_npz"
+# scipy = pyimport("scipy.sparse")
+# load_npz = scipy."load_npz"
 
 
 # 求距离矩阵 
@@ -20,35 +21,39 @@ function distance_1()
 end
 
 # 求距离矩阵
-function get_mat()
+function distance_2()
     # x = features = np.load(raw"D:\download\features\512.fea.npy")
-    x = np.load("/data/yongzhang/cluster/test_2/512.fea.npy")
-    # dists = euclidean(x, x)
+    # x = np.load("/data5/yongzhang/cluster/test_2/valse19.npy")
+    # npzwrite("x.npy", x)
+    x = npzread("x.npy")
     println("size(x):", size(x))
     x = x'
-    dists = pairwise(Euclidean(), x, x);   # 求L2距离/欧式距离.  和faiss的计算结果不同
+    # dists = euclidean(x, x)
+    dists = pairwise(Euclidean(), x, x);   # 求L2距离/欧式距离.  和faiss的计算结果不同. 挺快的. 单进程
     println("size(dists):", size(dists))
-    sort!(dists, dims=2)   # rev=true
+    sort!(dists, dims=2)   # rev=true   # 排序很慢,还爆内存. 求ann/knn. 需要高级的ann算法
     dists = dists[1:end,1:1000]
-    out_file = joinpath("/data/yongzhang/cluster/test_2/out_2", "mat.npy")
-    np.save(out_file, dists)    
+    npzwrite("dist.npy", dists)
+    # 555.789902 seconds (12.87 M allocations: 19.691 GiB, 0.11% gc time)
 end
 
 # 求距离矩阵
-function get_mat_2()
-    # x = np.load("/data/yongzhang/cluster/data_3/clean/feat/0302_feat_1.npy")
-    x = np.load("/data/yongzhang/cluster/test_2/512.fea.npy")
+function distance_3()
+    # knn
+    x = npzread("x.npy")
     println("size(x):", size(x), " ", typeof(x))
     X = transpose(x)  # 矩阵转置, 也可以用 x'
     X = convert(Array, X)
     println("size(x):", size(X), " ", typeof(X))
-    knearest = 1000
-    kdtree = KDTree(X)
+    k = 100
+    gallery = X
+    query = X
     println("knn...")
-    idxs, dists = knn(kdtree, X, knearest, true)  # 单线程的
-    println("idxs, dists:",size(idxs), size(dists))
+    kdtree = KDTree(gallery, leafsize=4)   # 同index.add(gallery) 
+    idxs, dists = knn(kdtree, query, k, true)  # 单线程的   # query查询
+    println("idxs: $(size(idxs)), dists: $(size(dists))")
     println(dists[1])
-
+    npzwrite("dist_kdtree.npy", dists)
 end
 
 
@@ -77,11 +82,9 @@ function cluster_1()
 end
 
 
-# get_mat()
-# get_mat_2()
 # cluster_1()
-@time distance_1()
-
+# @time distance_2()
+@time distance_3()
 
 #=
 

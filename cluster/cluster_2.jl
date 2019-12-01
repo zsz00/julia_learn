@@ -1,5 +1,6 @@
 # julia聚类, 层次聚类
 using Dates
+using ProgressMeter
 using PyCall
 np = pyimport("numpy")
 
@@ -61,7 +62,41 @@ function cluster_jl(dists, idx, th)
         add(dic, l, i)
     end
     println("cluster:", th, " img:", size(labels), " id:", length(dic))
+end
 
+function cluster_jl_2(mat_csr, th)
+    # 输入是 mat_csr, 稀疏矩阵.
+    gallery_shape = mat_csr.shape[1] 
+    println("gallery_shape;", gallery_shape)
+    size_1 = gallery_shape
+    rank = zeros(Int, size_1)
+    same = Array(range(1,size_1, step=1))
+    # Threads.@threads
+    @showprogress for i in range(1, stop=gallery_shape)
+        sim = mat_csr[i].data
+        idx = mat_csr[i].indices
+        # println("sim: ", sim, " idx: ", idx)
+        if size(sim)[1] == 0
+            continue
+        end
+
+        wh = np.where(sim .> th)  # 用的python numpy 会慢,类型转换.还是两语言问题. 比直接用python还慢. 
+        xs = wh[1]
+        ys = idx[xs.+1] .+1  # xs
+        # println(xs, " ", ys)
+        for j in range(1, stop=size(xs)[1])  # pair数, 量大.  要求query=gallery
+            union!(i, ys[j], same, rank)   # 结合,合并
+        end
+    end
+    labels = [find(i, same) for i in range(1,size_1,step=1)]
+    labels = labels .-1
+
+    dic = Dict()
+    for (i, l) in enumerate(labels)
+        add(dic, l, i)
+    end
+    println("cluster: th:", th, " img:", size(labels), " id:", length(dic))
+    np.save("sty_labels_$(th).npy", labels)
 end
 
 
@@ -98,7 +133,27 @@ function cluster_all()
     println("used: ", (Dates.now()-time1).value/1000, " s")
 end
 
-@time cluster_1()
+
+function cluster_2()
+    # ENV["JULIA_NUM_THREADS"]=10
+    scipy = pyimport("scipy.sparse")
+    load_npz = scipy.load_npz
+    println("load mat...")
+    # mat_csr = load_npz("/data5/yongzhang/cluster/data/cluster_data/valse/out1/mat.npy.npz")  # 19G*2 mem
+    mat_csr = load_npz("/data5/yongzhang/cluster/data/cluster_data/sty/mat.npy.npz")  # 19G*2 mem
+    println("load mat over...")
+    println("mat_csr: ", mat_csr.shape[1])   # getnnz(mat_csr), 
+
+    thresholds = Array(range(0.5,0.5, step=0.1))
+    time1 = Dates.now()
+    for (i, th) in enumerate(thresholds)
+        cluster_jl_2(mat_csr, th)
+    end
+    println("used: ", (Dates.now()-time1).value/1000, " s")
+end
+
+
+@time cluster_2()
 
 
 
@@ -114,10 +169,13 @@ cluser_jl: 6s    10s
 
 cluser_jl: 6.5min 很慢  3753887 imgs  c: 22s
 py: 13min
+
+不能用多线程, 会Segmentation fault (core dumped)
+48s
+55s
 =#
 
 #=
 export JULIA_NUM_THREADS=40
 ENV["JULIA_NUM_THREADS"]=40
-
 =#

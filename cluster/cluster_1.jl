@@ -60,7 +60,7 @@ end
 
 # 求距离矩阵
 function distance_4()
-    # Rayuela.jl ,   PQ. 不会用
+    # Rayuela.jl ,   PQ. 不成熟,不会用
     x = npzread("x.npy")
     println("size(x):", size(x), " ", typeof(x))
     X = transpose(x)  # 矩阵转置, 也可以用 x'

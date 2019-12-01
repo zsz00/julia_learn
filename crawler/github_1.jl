@@ -58,9 +58,9 @@ function stars()
     return all
 end
 
-# all = stars()
-# @save "all.jld2" all
-@load "all.jld2" all
+all = stars()
+@save "all.jld2" all
+# @load "all.jld2" all
 data = DataFrame(all)
 
 star = DataFrame(data[2:end, :])
@@ -74,12 +74,6 @@ println(star)
 
 
 #=
-20190309
-│ 1   │ matlab │ r    │ lua  │ javascript │ swift │ php   │ c     │ cpp   │ java  │ python │ julia │ rust │ typescript │ go    │
-│ 2   │ 2111   │ 4986 │ 4039 │ 151659     │ 13290 │ 40095 │ 31790 │ 36326 │ 65818 │ 93305  │ 1211  │ 5804 │ 11716      │ 24676 │
-│ 3   │ 199    │ 584  │ 626  │ 30007      │ 3480  │ 6338  │ 5852  │ 6518  │ 13767 │ 16949  │ 138   │ 1204 │ 2417       │ 5975  │
-│ 4   │ 11     │ 25   │ 57   │ 4412       │ 585   │ 762   │ 673   │ 778   │ 2036  │ 1949   │ 5     │ 142  │ 385        │ 1021  │
-│ 5   │ 1      │ 1    │ 4    │ 345        │ 27    │ 20    │ 21    │ 43    │ 70    │ 82     │ 1     │ 6    │ 29         │ 60    │
 
 
 =#

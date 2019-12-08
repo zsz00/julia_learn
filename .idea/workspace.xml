@@ -2,13 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="8a15be53-aca7-4c2f-9a70-332f3f3b0508" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/deployment.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.vscode/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/.vscode/settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/all.jld2" beforeDir="false" afterPath="$PROJECT_DIR$/all.jld2" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cluster/cluster_1.jl" beforeDir="false" afterPath="$PROJECT_DIR$/cluster/cluster_1.jl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cluster/cluster_2.jl" beforeDir="false" afterPath="$PROJECT_DIR$/cluster/cluster_2.jl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crawler/github_1.jl" beforeDir="false" afterPath="$PROJECT_DIR$/crawler/github_1.jl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cluster/graph_1.jl" beforeDir="false" afterPath="$PROJECT_DIR$/cluster/graph_1.jl" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -109,7 +104,7 @@
       <workItem from="1575001482226" duration="6896000" />
       <workItem from="1575027767188" duration="594000" />
       <workItem from="1575037581534" duration="1339000" />
-      <workItem from="1575044093334" duration="13286000" />
+      <workItem from="1575044093334" duration="13886000" />
     </task>
     <servers />
   </component>

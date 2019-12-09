@@ -132,8 +132,8 @@ end
 
 function cluster_3()
     t0 = Dates.now()
-    G = Graph()
-    mg = MetaGraph(G)
+    G = SimpleGraph()
+    mg = G   # MetaGraph(G)
     # feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
     feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
 
@@ -144,13 +144,13 @@ function cluster_3()
     th = 0.5
     batch = 1000
     for i in range(1, stop=size_1, step=batch)    # n*(n-1)/2.   @showprogress
-        add_vertexs!(mg, batch)   #  
+        add_vertices!(mg, batch)   #  
         # set_props!(mg, i, Dict(:feat=>feats[i,1:end]))  # feats可以不存储在图里,可以存储在外边,可以用节点号索引.
         # nodes_1 = vertices(mg)
         # println("nodes:", collect(nodes_1))  # 打印每个node的key/id.
-        push!(feats_1, feats[i,1:end])
+        push!(feats_1, feats[i:i+batch,1:end])
         feats_3 = vcat((hcat(i...) for i in feats_1)...)  # 转换 shape
-        feats_2 = feats[i,1:end]
+        feats_2 = feats[i:i+batch,1:end]
         feats_2 = vcat((hcat(i...) for i in feats_2)...)  # 转换 shape
         println(size(feats_3), size(feats_2))
         cos =  feats_3 * feats_2
@@ -160,10 +160,11 @@ function cluster_3()
         println("idx_1: ", size(idx_1))
         # continue
         for j in Tuple.(idx_1)
-            add_edge!(mg, i, j[1])    # 怎么批量加edges ???  找不见  . 自己写个循环吧
+            # println(j[2]+i, ", ", j[1])
+            add_edge!(mg, j[2], j[1]+i)    # 怎么批量加edges ???  找不见  . 自己写个循环吧
         end
         # println("nv(mg):", nv(mg))  # mg的节点数量
-        gg, var = get_gg(mg, i)   # 找到包含当前node的子图
+        # gg, var = get_gg(mg, i)   # 找到包含当前node的子图
         # println("i:", i, " var:", var)
 
         # 递归处理 var大的簇. 动态阈值.  怎么递归,循环

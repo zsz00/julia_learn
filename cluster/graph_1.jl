@@ -51,7 +51,7 @@ function cluster_1_2()
     增量的 层次聚类. 算方差
     used: 14845.068 s, 70184.  4h on 10.42.64.84
     g_list:(3358,)
-
+    2:05:04
     1:33
 
     """
@@ -148,16 +148,19 @@ function cluster_3()
         # nodes_1 = vertices(mg)
         # println("nodes:", collect(nodes_1))  # 打印每个node的key/id.
         push!(feats_1, feats[i,1:end])
-        feats_1 = vcat((hcat(i...) for i in feats_1)...)  # 转换 shape
-        println(size(feats_1), size(feats[i,1:end]))
-        cos =  feats_1 * feats[i,1:end]
-        println(size(cos))
+        feats_3 = vcat((hcat(i...) for i in feats_1)...)  # 转换 shape
+        feats_2 = feats[i,1:end]
+        feats_2 = vcat((hcat(i...) for i in feats_2)...)  # 转换 shape
+        println(size(feats_3), size(feats_2))
+        cos =  feats_3 * feats_2
+        # println(size(cos))
         idx_1 = findall(cos.>th)  # 很慢
         # aa = [{"weight": cos} for cos in cos[idx]]
-        println(size(idx_1))
-        continue
-        add_edges!(mg, i, key)    # 怎么批量加edges ???  找不见  . 自己写个循环吧
-
+        println("idx_1: ", size(idx_1))
+        # continue
+        for j in Tuple.(idx_1)
+            add_edges!(mg, i, j[1])    # 怎么批量加edges ???  找不见  . 自己写个循环吧
+        end
         # println("nv(mg):", nv(mg))  # mg的节点数量
         gg, var = get_gg(mg, i)   # 找到包含当前node的子图
         # println("i:", i, " var:", var)

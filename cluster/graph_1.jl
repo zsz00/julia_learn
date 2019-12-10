@@ -51,7 +51,7 @@ function cluster_1_2()
     增量的 层次聚类. 算方差
     used: 14845.068 s, 70184.  4h on 10.42.64.84
     g_list:(3358,)
-    2:05:04
+    2:05:04 
     1:33
 
     """
@@ -131,6 +131,11 @@ end
 
 
 function cluster_3()
+    """
+    used: 26.141 s, 70184  batch:1000
+    g_list:3358
+    
+    """
     t0 = Dates.now()
     G = SimpleGraph()
     mg = G   # MetaGraph(G)
@@ -142,26 +147,32 @@ function cluster_3()
     println("used: ", (t1 - t0).value/1000, " s, ", size_1)
     feats_1 = []
     th = 0.5
-    batch = 1000
-    for i in range(1, stop=size_1, step=batch)    # n*(n-1)/2.   @showprogress
+    batch = 2000
+    @showprogress for i in range(1, stop=size_1, step=batch)    # n*(n-1)/2.   @showprogress
+        if size_1-i<batch
+            batch = size_1-i
+        end
         add_vertices!(mg, batch)   #  
         # set_props!(mg, i, Dict(:feat=>feats[i,1:end]))  # feats可以不存储在图里,可以存储在外边,可以用节点号索引.
         # nodes_1 = vertices(mg)
         # println("nodes:", collect(nodes_1))  # 打印每个node的key/id.
-        push!(feats_1, feats[i:i+batch,1:end])
-        feats_3 = vcat((hcat(i...) for i in feats_1)...)  # 转换 shape
-        feats_2 = feats[i:i+batch,1:end]
-        feats_2 = vcat((hcat(i...) for i in feats_2)...)  # 转换 shape
-        println(size(feats_3), size(feats_2))
-        cos =  feats_3 * feats_2
-        # println(size(cos))
+        push!(feats_1, feats[i:i+batch-1,1:end])
+        # feats_3 = vcat((hcat(i...) for i in feats_1)...)  # 转换 shape
+        feats_3 = vcat(feats_1...)   # 转换 shape
+        feats_2 = feats[i:i+batch-1, 1:end]
+        # feats_3 = reshape(feats_3, (:,384))
+        # feats_2 = vcat((hcat(i...) for i in feats_2)...)  # 转换 shape
+        # println(size(feats_2), size(feats_3'))
+        cos =  feats_2 * feats_3'
+        # println("cos:",size(cos))
         idx_1 = findall(cos.>th)  # 很慢
         # aa = [{"weight": cos} for cos in cos[idx]]
-        println("idx_1: ", size(idx_1))
+        # println("idx_1: ", size(idx_1))
         # continue
         for j in Tuple.(idx_1)
-            # println(j[2]+i, ", ", j[1])
-            add_edge!(mg, j[2], j[1]+i)    # 怎么批量加edges ???  找不见  . 自己写个循环吧
+            # print("i:", i, " j:", j)
+            # println(j[1]+i,  ", ", j[2])
+            add_edge!(mg, j[1]+i-1, j[2])    # 怎么批量加edges ???  找不见  . 自己写个循环吧
         end
         # println("nv(mg):", nv(mg))  # mg的节点数量
         # gg, var = get_gg(mg, i)   # 找到包含当前node的子图
@@ -172,7 +183,9 @@ function cluster_3()
     end
     t2 = Dates.now()
     println("used: ", (t2 - t1).value/1000, " s, ", size_1)
-
+    g_list = connected_components(mg)
+    
+    println("g_list:", size(g_list)[1])    # 子图的数量
 end
 
 

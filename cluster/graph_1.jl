@@ -51,8 +51,7 @@ function cluster_1_2()
     增量的 层次聚类. 算方差
     used: 14845.068 s, 70184.  4h on 10.42.64.84
     g_list:(3358,)
-    2:05:04 
-    1:33
+    2:05:04   1. 换用SimpleGraph()   2. 不用feat_1=get_prop(mg, key, :feat) 
 
     """
     t0 = Dates.now()
@@ -132,25 +131,37 @@ end
 
 function cluster_3()
     """
+    批量的 层次聚类. 很快
     used: 26.141 s, 70184  batch:1000
+    used: 23.641 s, 70184  batch:2000
     g_list:3358
     
+    used: 186.011 s, 256016 batch:2000  zzf  
+    g_list:4618
+
+    ms1m:
+    used: 647.45 s, 584013   0:10:47
+    th:0.74 id_sum:121726
+
     """
     t0 = Dates.now()
     G = SimpleGraph()
     mg = G   # MetaGraph(G)
-    # feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
-    feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
-
+    if Sys.iswindows()
+        feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
+    else
+        # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
+        feats = npzread("/data5/yongzhang/cluster/data/cluster_data/ms1m/ms1m_part1_test_feat.npy")
+    end
     size_1 = size(feats)[1]
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, " s, ", size_1)
     feats_1 = []
-    th = 0.5
+    th = 0.74
     batch = 2000
     @showprogress for i in range(1, stop=size_1, step=batch)    # n*(n-1)/2.   @showprogress
         if size_1-i<batch
-            batch = size_1-i
+            batch = size_1-i+1
         end
         add_vertices!(mg, batch)   #  
         # set_props!(mg, i, Dict(:feat=>feats[i,1:end]))  # feats可以不存储在图里,可以存储在外边,可以用节点号索引.
@@ -161,73 +172,225 @@ function cluster_3()
         feats_3 = vcat(feats_1...)   # 转换 shape
         feats_2 = feats[i:i+batch-1, 1:end]
         # feats_3 = reshape(feats_3, (:,384))
-        # feats_2 = vcat((hcat(i...) for i in feats_2)...)  # 转换 shape
         # println(size(feats_2), size(feats_3'))
         cos =  feats_2 * feats_3'
         # println("cos:",size(cos))
         idx_1 = findall(cos.>th)  # 很慢
-        # aa = [{"weight": cos} for cos in cos[idx]]
         # println("idx_1: ", size(idx_1))
-        # continue
         for j in Tuple.(idx_1)
             # print("i:", i, " j:", j)
             # println(j[1]+i,  ", ", j[2])
-            add_edge!(mg, j[1]+i-1, j[2])    # 怎么批量加edges ???  找不见  . 自己写个循环吧
+            add_edge!(mg, j[1]+i-1, j[2])    # 怎么批量加edges ??? 自己写个循环吧
         end
         # println("nv(mg):", nv(mg))  # mg的节点数量
         # gg, var = get_gg(mg, i)   # 找到包含当前node的子图
         # println("i:", i, " var:", var)
-
-        # 递归处理 var大的簇. 动态阈值.  怎么递归,循环
-
     end
     t2 = Dates.now()
-    println("used: ", (t2 - t1).value/1000, " s, ", size_1)
+    println("used: ", (t2 - t1).value/1000, "s, ", size_1)
     g_list = connected_components(mg)
-    
-    println("g_list:", size(g_list)[1])    # 子图的数量
+    println("th:", th, " id_sum:", size(g_list)[1])    # 子图的数量
 end
 
 
-function get_gg(mg, i)
+function cluster_3_2()
+    """
+    批量的 动态阈值层次聚类
+    很慢
+    valse:70184, 
+    2h
+
+    used: 3:10:08, 70184   笔记本(主频高):2:33:08
+    th:0.6/0.48/0.4, g_list:3336
+
+    count: 46428129
+    used: 11901.713 s, 70184   3:18:21
+    th:0.6/0.48/0.45, g_list:3335     var在for外无拆图
+
+
+    """
+    t0 = Dates.now()
+    G = SimpleGraph()
+    mg = G   # MetaGraph(G)
+    # dir_1 = "/data5/yongzhang/cluster/data/cluster_data/zhaji/zzf/results_2"
+    # feats = npzread(joinpath(dir_1, "new_feat_2730.npy"))  #
+    if Sys.iswindows()
+        feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
+    else
+        # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
+        feats = npzread("/data5/yongzhang/cluster/data/cluster_data/ms1m/ms1m_part1_test_feat.npy")
+    end
+
+    size_1 = size(feats)[1]
+    t1 = Dates.now()
+    println("used: ", (t1 - t0).value/1000, "s, ", size_1)
+    feats_1 = []
+    batch = 1000
+    count = 0
+    th_max = 0.70   # 0.6
+    th_min = 0.64  # 0.48
+    step_th = 0.02
+    var_th = 0.5  # 0.45
+    @showprogress for i in range(1, stop=size_1, step=batch)    # n*(n-1)/2.   @showprogress  不能并行
+        if size_1-i<batch
+            batch = size_1-i
+        end
+        add_vertices!(mg, batch) 
+        push!(feats_1, feats[i:i+batch-1,1:end])
+        # feats_3 = vcat((hcat(i...) for i in feats_1)...)  # 转换 shape
+        feats_3 = vcat(feats_1...)   # 转换 shape
+        feats_2 = feats[i:i+batch-1, 1:end]
+        # feats_3 = reshape(feats_3, (:,384))
+        # println(size(feats_2), size(feats_3'))
+        cos =  feats_2 * feats_3'
+        # println("cos:",size(cos))
+        for k=1:batch
+            th = th_max     # 0.66
+            # count = 0
+            flag = 0
+            while th >= th_min   # 合并图的方式.
+                idx_1 = findall(cos[k,:].>th)
+                # println("idx_1: ", size(idx_1), " ", idx_1)
+                if size(idx_1)[1] == 0
+                    th -= step_th
+                    th = round(th, digits=3)
+                    # println("...")
+                    continue
+                end
+                th -= step_th
+                th = round(th, digits=3)
+                
+                for j in Tuple.(idx_1)   # 怎么批量加edges,自己写个循环吧
+                    # println("i:", i, " j:", j)
+                    # println(i+k-1,  ", ", j[1])
+                    add_edge!(mg, i+k-1, j[1])    # 加一个边
+                    count += 1
+                    # 算方差, 做判断
+                    # gg, var_1 = get_gg(mg, i+k-1, feats)   # 找到包含当前node的子图. ,慢. 放到这层循环里要跑更多的var. 越到后边,越慢
+                    # # var_1 = 0.4
+                    # # println("i:", i+k, " th:", th, " var:", var_1)
+                    # if var_1 > var_th
+                    #     println("\n over var_1..... ", var_1)
+                    #     rem_edge!(mg, i+k-1, j[1])
+                    #     flag = 1
+                    #     break
+                    # end
+                end
+
+                gg, var_1 = get_gg(mg, i+k-1, feats)   # 找到包含当前node的子图
+                if var_1 >= var_th
+                    println("\n over var_1..... ", var_1, " ,", th, " i:",i, " k:",k)
+                    # 拆边
+                    # for j in Tuple.(idx_1)   # 怎么批量加edges,自己写个循环吧
+                    #     rem_edge!(mg, i+k-1, j[1])
+                    #     gg, var_1 = get_gg(mg, i+k-1, feats)
+                    #     if var_1 <= var_th
+                    #         println("\n over over var_1..... ", var_1)
+                    #         flag = 1
+                    #         break
+                    #     end
+                    # end
+                    flag = 1
+                    break
+                end
+                # if flag == 1
+                #     break
+                # end
+            end
+        end
+    end
+    t2 = Dates.now()
+    println("count: ", count)
+    println("used: ", (t2 - t1).value/1000, "s, ", size_1)
     g_list = connected_components(mg)
+    t3 = Dates.now()
+    println("used: ", (t3 - t2).value/1000, "s, ")
+    println("th:", th_max, "id_sum:", size(g_list)[1])    # 子图的数量
+end
+
+
+function get_gg(mg, i, feats)
+    g_list = connected_components(mg)    # 获取连通子图.  慢 ??   0.05s * 46460000 = 26day
     # println("g_list:", size(g_list)[1])    # 子图的数量
     gg = 0
+    var_1 = 1
     # println("mg:", mg)
-    for g in g_list    # 找到包含当前node的子图
-        sg, vmap = induced_subgraph(mg, g)   # 子图sg 里的节点编号是变了,变成子集的新节点了(1,2..).
+    Threads.@threads for g in g_list    # 找到包含当前node的子图
+        # sg, vmap = induced_subgraph(mg, g)   # 子图sg 里的节点编号是变了,变成子集的新节点了(1,2..).
         # println("g_1: ", join([g, collect(vertices(sg)), i, vmap], ", "))
-        if i in vmap  # has_vertex
-            gg = sg
-            # println("gg: ", gg, i)
+        if i in g  # has_vertex
+            # println("g_1: ", join([g, i, "..."], ", "))
+            # gg = sg
+            # nodes = collect(vertices(sg))   # 求这个子图的 var. 利用所有边长.
+            # var = np.sum(np.var(feats[nodes], axis=0))
+            @inbounds var_1 = sum(var(feats[g,:], dims=1,corrected=false))   # 快
+            # var_1 = 0.4
+            # println("sg: ", join([g, i, var_1], ", "))
             break
         end
     end
-
-    # 求这个子图的 var. 利用所有边长.
-    # println("n_v:", nv(gg))  # 子图的节点数
-    sim = []
-    # println("ddd:", size(collect(edges(gg))))   # 子图的边数量
-    for e in collect(edges(gg))
-        cos = get_prop(gg, e, :weight)
-        # println("e:", e)
-        # println("cos:", cos)
-        push!(sim, cos)
-    end
-    # println("sim:", sim)
-    if sim == []
-        sim_mean = 1
-    else
-        sim_mean = mean(sim)
-    end
-    var = 1 - sim_mean
-
-    return gg, var
+    return gg, var_1
 end
 
 
+function cluster_4()
+    """
+    动态阈值层次聚类
+
+
+    """
+
+    if Sys.iswindows()
+        feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
+    else
+        # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
+        feats = npzread("/data5/yongzhang/cluster/data/cluster_data/ms1m/ms1m_part1_test_feat.npy")
+    end
+
+    size_1 = size(feats)[1]
+    t1 = Dates.now()
+    println("used: ", (t1 - t0).value/1000, "s, ", size_1)
+    feats_1 = []
+    batch = 1000
+    count = 0
+    th_max = 0.70   # 0.6
+    th_min = 0.64  # 0.48
+    step_th = 0.02
+    var_th = 0.5  # 0.45
+    nodes = []  # dict()
+    clusters = Dict()
+    for i in range(1, stop=size_1)    # n*(n-1)/2.   @showprogress  不能并行
+        push!(feats_1, feats[i,1:end])
+        # feats_3 = vcat((hcat(i...) for i in feats_1)...)  # 转换 shape
+        feats_3 = vcat(feats_1...)   # 转换 shape
+        feats_2 = feats[i, 1:end]
+        cos =  feats_2 * feats_3'
+        # println("cos:",size(cos))
+        
+        push!(nodes,i)
+        clusters[i] = Cluster(i)
+        clusters[i].add([i])
+        th = th_max
+        while th >= th_min:
+            idx = np.where(cos > th)  # 相似性搜索.  或者去rank
+
+        
+    end
+    t2 = Dates.now()
+    println("count: ", count)
+    println("used: ", (t2 - t1).value/1000, "s, ", size_1)
+    g_list = connected_components(mg)
+    t3 = Dates.now()
+    println("used: ", (t3 - t2).value/1000, "s, ")
+    println("th:", th_max, "id_sum:", size(g_list)[1])    # 子图的数量
+end
+
+
+
+# @time test_1()   
 # cluster_1_2()
 cluster_3()
+# cluster_3_2()
 # @profview cluster_1_2()
 # ProfileView.svgwrite("profile_results.svg")
 

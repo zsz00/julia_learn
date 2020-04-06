@@ -18,17 +18,18 @@ function cluster_1()
     G = Graph()
     mg = MetaGraph(G)
     # feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
-    feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
+    # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
+    feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\test\biaozhu\longhu_20w\feats.npy")
 
     size_1 = size(feats)[1]
     t1 = Dates.now()
-    println("used: ", (t1 - t0).value/1000, " s, ", size_1)
+    println("used: ", (t1 - t0).value/1000, "s, ", size_1)
     @showprogress for i in range(1, stop=size_1)    # n*(n-1)/2.   @showprogress
         add_vertex!(mg)
         set_props!(mg, i, Dict(:feat=>feats[i,1:end]))
         # println(props(mg, i))
         # nodes_1 = vertices(mg)
-        for key in range(1, stop=i-1)   # nodes 是一个嵌套字典结构
+        for key in range(1, stop=i-1)   # nodes是一个嵌套字典结构
             feat_1 = get_prop(mg, key, :feat)   # nodes_1[key]["feat"]
             cos = feats[i, 1:end]' * feat_1
             # println(join([i, key, cos], ", "))
@@ -40,7 +41,7 @@ function cluster_1()
         end
     end
     t2 = Dates.now()
-    println("used: ", (t2 - t1).value/1000, " s, ", size_1)
+    println("used: ", (t2 - t1).value/1000, "s, ", size_1)
 
     g_list = connected_components(mg)
     println("g_list:", size(g_list))
@@ -49,7 +50,7 @@ end
 function cluster_1_2()
     """
     增量的 层次聚类. 算方差
-    used: 14845.068 s, 70184.  4h on 10.42.64.84
+    used: 14845s, 70184.  4h on 10.42.64.84
     g_list:(3358,)
     2:05:04   1. 换用SimpleGraph()   2. 不用feat_1=get_prop(mg, key, :feat) 
 
@@ -58,7 +59,8 @@ function cluster_1_2()
     G = SimpleGraph()  # Graph()
     mg = G  # MetaGraph(G)
     # feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
-    feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")  # [1:20000,1:end]  # 7w*384 2s  比np.load()的慢
+    # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")  # [1:20000,1:end]  # 7w*384 2s  比np.load()的慢
+    feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\test\biaozhu\longhu_20w\feats.npy")  # [1:10000,1:end]
 
     size_1 = size(feats)[1]
     t1 = Dates.now()
@@ -67,7 +69,7 @@ function cluster_1_2()
     for i=1:size_1    # n*(n-1)/2.    并行崩溃   Threads.@threads 
         add_vertex!(mg)
         next!(p)
-        for j=1:i-1   # nodes 是一个嵌套字典结构   @inbounds
+        for j=1:i-1   # @inbounds
             feat_1 = feats[j, 1:end]  # get_prop(mg, j, :feat)   # nodes_1[j]["feat"]
             # cos = sum(feats[i, 1:end] .* feat_1)   # 慢
             cos = feats[i, 1:end]' * feat_1   # 慢
@@ -337,7 +339,6 @@ function cluster_4()
     """
     动态阈值层次聚类
 
-
     """
 
     if Sys.iswindows()
@@ -371,9 +372,9 @@ function cluster_4()
         clusters[i] = Cluster(i)
         clusters[i].add([i])
         th = th_max
-        while th >= th_min:
+        while th >= th_min
             idx = np.where(cos > th)  # 相似性搜索.  或者去rank
-
+        end
         
     end
     t2 = Dates.now()
@@ -388,8 +389,8 @@ end
 
 
 # @time test_1()   
-# cluster_1_2()
-cluster_3()
+cluster_1_2()
+# cluster_3()
 # cluster_3_2()
 # @profview cluster_1_2()
 # ProfileView.svgwrite("profile_results.svg")
@@ -398,8 +399,7 @@ cluster_3()
 
 """
 export JULIA_NUM_THREADS=4
-
-used: 558.827 s
+used: 558.827s  10min
 
 图数据/图数据库 是存储在字典数据结构中的, 像mongodb. 读写,查询速度会快吗??
 

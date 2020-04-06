@@ -72,7 +72,6 @@ rename!(star, name)
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
 println(star)
 
-
 #=
 
 

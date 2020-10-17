@@ -4,7 +4,7 @@ using NearestNeighbors
 # using Makie  # plot
 using PyCall
 using Distances 
-# using RDatasets
+using RDatasets
 using NPZ
 np = pyimport("numpy")
 # scipy = pyimport("scipy.sparse")

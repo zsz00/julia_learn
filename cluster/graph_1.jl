@@ -1,3 +1,4 @@
+# import Pkg; Pkg.add("NPZ")
 using LightGraphs, MetaGraphs
 using NPZ
 using Dates
@@ -11,7 +12,7 @@ function cluster_1()
     """
     增量的 层次聚类. 算方差
     used: 14845.068 s, 70184.  4h on 10.42.64.84
-    g_list:(3358,)
+    g_list:(3358,)    太慢
     
     """
     t0 = Dates.now()
@@ -66,7 +67,8 @@ function cluster_1_2()
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, "s, ", size_1)
     p = Progress(size_1)
-    for i=1:size_1    # n*(n-1)/2.    并行崩溃   Threads.@threads 
+    println("nthreads:", Threads.nthreads())
+    for i=1:size_1    # n*(n-1)/2.    并行崩溃   Threads.@threads 单线程还更快
         add_vertex!(mg)
         next!(p)
         for j=1:i-1   # @inbounds
@@ -99,7 +101,7 @@ function cluster_2()
     println("used: ", (t1 - t0).value/1000, " s, ", size_1)
     p = Progress(size_1)
     Threads.@threads for i in range(1, stop=size_1)    # n*(n-1)/2.   @showprogress
-        add_vertex!(mg)   #  
+        add_vertex!(mg) 
         set_props!(mg, i, Dict(:feat=>feats[i,1:end]))  # feats可以不存储在图里,可以存储在外边,可以用节点号索引.
         # sleep(1)
         next!(p)
@@ -366,8 +368,7 @@ function cluster_4()
         feats_3 = vcat(feats_1...)   # 转换 shape
         feats_2 = feats[i, 1:end]
         cos =  feats_2 * feats_3'
-        # println("cos:",size(cos))
-        
+
         push!(nodes,i)
         clusters[i] = Cluster(i)
         clusters[i].add([i])
@@ -406,7 +407,7 @@ used: 558.827s  10min
 按对象类型各自单独存储, 节点数据存储在节点文件里, 边数据存储在边文件里, 索引数据存储在索引文件里. 
 这样每个文件里, 数据就是同类型的, 可以高效存储和查询. 
 节点数据: 有两种存储方式
-1. 以字典方式存储在图里, 查询时候是按key-value方式查询, 字典/hash查询很快. 
+1. 以字典方式存储在图里, 查询时候是按key-value方式查询, 字典查询很快. 
 2. 以结构数据存储在图外, 查询时按索引位置查找. 
 
 感觉在图里,也是全走的索引.

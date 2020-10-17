@@ -1,11 +1,11 @@
 using HTTP
 using Gumbo  # 解析网页元素
 # using Cascadia
-# using DataFrames
 # using AbstractTrees
 using DataFrames
 import Dates
 using JLD2
+
 
 function stars()
     # url_1 = "https://github.com/search?l=r&q=stars%3A%3E1000&s=updated&type=Repositories"
@@ -25,9 +25,6 @@ function stars()
             res = HTTP.get(url)
             body = String(res.body)
             html = Gumbo.parsehtml(body)
-            # for elem in PostOrderDFS(html.root) 
-            #     println(tag(elem)) 
-            # end
 
             qdat = Base.eachmatch(r".* repository results", body);  # html.root    # 正则匹配
             # application-main 
@@ -53,7 +50,7 @@ function stars()
         end
         push!(all, lang)
         print("\n")
-        sleep(40)
+        sleep(10)
     end
     return all
 end
@@ -72,7 +69,3 @@ rename!(star, name)
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
 println(star)
 
-#=
-
-
-=#

@@ -27,14 +27,16 @@ end
 
 function test_2()
 
-    rows = CSV.Rows(open("cluster/stream/data/iris.txt"); reusebuffer = true)
+    # rows = CSV.Rows(open("cluster/stream/data/iris.txt"); reusebuffer = true)
+    rows = dataset("datasets", "iris")  # iris花的数据
     itr = (row.variety => parse(Float64, row.sepal_length) for row in rows)
     println(itr)
     
-    o = GroupBy(String, Hist(4:0.25:8))
+    # o = GroupBy(String, Hist(4:0.25:8))
+    o = GroupBy(String, CountMap())
     b = fit!(o, itr)
     println(b)
-    plot(o, layout=(3,1))
+    # plot(o, layout=(3,1))
     
 end
 
@@ -71,14 +73,12 @@ function test_4()
     dists = euclidean(x, x)
     # dists = pairwise(Euclidean(), x, x);   # 求L2距离/欧式距离. 和faiss的计算结果不同. 挺快的. 单进程
     println(size(dists))
-    result = hclust(dists, linkage=:average, uplo=:U)  # 层次聚类(最小距离)  average single
-    # println(result)
-    # Distance matrix should be square. mat必须是n*n的对称矩阵. 或者 AbstractArray{T,2}
-    println("result:")
-    println(size(result.merges), result.heights, result.merges)
-    aa = cutree(result; h=0.6)
-    println(aa)
-    println(size(aa), " id:", length(Set(aa)))
+
+    o = GroupBy(String, Hist(4:0.25:8))
+    op = Cluster_op()
+    b = fit!(o, x)
+    println(b)
+    plot(o, layout=(3,1))
 
 end
 
@@ -86,7 +86,6 @@ end
 # mutable struct Cluster
 #     id::String
 #     members::Array{String,1}
-
 #     size = length(members)
 #     add([id])
 # end
@@ -94,7 +93,7 @@ end
 
 function cluster_hac()
     """
-    固定阈值层次聚类
+    增量的层次聚类. 模拟流式
 
     """
     t0 = Dates.now()
@@ -104,6 +103,7 @@ function cluster_hac()
         # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
         feats = npzread("/data5/yongzhang/cluster/data/cluster_data/ms1m/ms1m_part1_test_feat.npy")
     end
+    feats = feats[1:10000, 1:end]
     size_1 = size(feats)[1]
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, "s, ", size_1)
@@ -143,7 +143,7 @@ function cluster_hac()
     labels = values(nodes)
 
     t2 = Dates.now()
-    println("labels: ", size(labels), length(Set(labels)))
+    println("labels: ", length(labels), " id:", length(Set(labels)))
     println("used: ", (t2 - t1).value/1000, "s, ", size_1)
 
 end
@@ -172,8 +172,6 @@ end
 
 
 
-
-
-# test_3()
+# test_2()
 cluster_hac()
 

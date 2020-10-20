@@ -1,8 +1,8 @@
 {
-    "python.pythonPath": "C:\\Users\\zsz61\\Miniconda3\\python.exe",
+    "python.pythonPath": "/home/zhangyong/miniconda3/bin/python",
     "julia.NumThreads": 4,
     "[julia]": {
         "editor.quickSuggestions": true
     },
-    "julia.executablePath": "C:\\Users\\zsz61\\AppData\\Local\\Programs\\Julia 1.5.1\\bin\\julia.exe"
+    "julia.executablePath": "/home/zhangyong/julia-1.5.2/bin/julia"
 }

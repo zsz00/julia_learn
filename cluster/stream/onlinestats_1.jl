@@ -1,3 +1,4 @@
+using OnlineStatsBase
 using OnlineStats
 using CSV, Plots
 using RDatasets
@@ -26,17 +27,18 @@ end
 
 
 function test_2()
-
-    # rows = CSV.Rows(open("cluster/stream/data/iris.txt"); reusebuffer = true)
-    rows = dataset("datasets", "iris")  # iris花的数据
+    # https://joshday.github.io/OnlineStats.jl/latest/bigdata/
+    rows = CSV.Rows(open("cluster/stream/data/iris.txt"); reusebuffer=true)
+    # rows = CSV.Rows(open("data/iris.txt"); reusebuffer = true)
+    # rows = dataset("datasets", "iris")  # iris花的数据
     itr = (row.variety => parse(Float64, row.sepal_length) for row in rows)
     println(itr)
     
-    # o = GroupBy(String, Hist(4:0.25:8))
-    o = GroupBy(String, CountMap())
+    o = GroupBy(String, Hist(4:0.25:8))
+    # o = GroupBy(String, CountMap())
     b = fit!(o, itr)
     println(b)
-    # plot(o, layout=(3,1))
+    plot(o, layout=(3,1))
     
 end
 
@@ -64,31 +66,58 @@ end
 
 
 function test_4()
-    # cluster online
+    # cluster online   2020.10.18
     # plant = dataset("cluster", "plantTraits")   # plantTraits数据集, 有missing, 返回的是DataFrame格式的数据
     iris = dataset("datasets", "iris")  # iris花的数据
     x = convert(Matrix, iris[:, 1:4])
     println(size(x))
     x = x'
-    dists = euclidean(x, x)
-    # dists = pairwise(Euclidean(), x, x);   # 求L2距离/欧式距离. 和faiss的计算结果不同. 挺快的. 单进程
-    println(size(dists))
 
-    o = GroupBy(String, Hist(4:0.25:8))
-    op = Cluster_op()
-    b = fit!(o, x)
+    op = ClusterOp()
+
+    b = fit!(op, x)
     println(b)
-    plot(o, layout=(3,1))
 
 end
 
+# 自定义类型, 结构体
+mutable struct ClusterOp <: OnlineStat{Vector{Float64}}
+    top_k::Int
+    th::Float32
+    num::Int64
+    nodes::Dict
+    clusters::Dict
+    index::Array
+    # ClusterOp() = new(100, 0.6, 0, Dict(), Dict(), [])  # init
+    # 调用外部api, 麻烦. 需要个julia api.  index=milvus_api_1.IndexMilvus(dim=384, repo="repo1")
+end
 
-# mutable struct Cluster
-#     id::String
-#     members::Array{String,1}
-#     size = length(members)
-#     add([id])
-# end
+# 重构 fit方法, 实现op功能
+function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
+    o.num += 1
+    # feat_1 = transform(feature)   # 反序列化
+    feat_1 = y
+
+    # 调用api
+    push!(o.index, feat_1)
+    # dists, idxs = o.index.search(feat_1, o.top_k)
+    feats_gallary = o.index
+    feats_gallary = vcat((hcat(i...) for i in feats_gallary)...)  # 转换 shape
+
+    feats_query = reshape(feat_1, (1,384))
+    cos = feats_query * feats_gallary'  # cos相似度
+
+    # init
+    o.nodes[o.num] = o.num
+    o.clusters[o.num] = [o.num]
+
+    idx_1 = findall(cos .> o.th)
+    idx_y = Tuple.(idx_1)
+
+    for (_, j) in idx_y  # 遍历每个连接
+        union_2!(o.num, j, o.nodes, o.clusters)
+    end
+end
 
 
 function cluster_hac()
@@ -101,16 +130,16 @@ function cluster_hac()
         feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
     else
         # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
-        feats = npzread("/data5/yongzhang/cluster/data/cluster_data/ms1m/ms1m_part1_test_feat.npy")
+        feats = npzread("/data/zhangyong/data/longhu_1/sorted_2/feats.npy")
     end
-    feats = feats[1:10000, 1:end]
+    # feats = feats[1:10000, 1:end]
     size_1 = size(feats)[1]
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, "s, ", size_1)
 
     feats_1 = []  # repo
     count = 0
-    threshold = 0.60   # 0.6
+    threshold = 0.55   # 0.6
     nodes = Dict()  
     clusters = Dict()
     @showprogress for i in range(1, stop=size_1)    # n*(n-1)/2.   @showprogress 
@@ -126,7 +155,7 @@ function cluster_hac()
         # println(join([i, dist], ", "))
 
         # init 
-        nodes[i] = i  
+        nodes[i] = i
         clusters[i] = [i] 
 
         # idx_1 = findall(x-> x > threshold, cos)
@@ -172,6 +201,7 @@ end
 
 
 
-# test_2()
-cluster_hac()
+test_2()
+# test_4()
+# cluster_hac()
 

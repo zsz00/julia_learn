@@ -7,6 +7,7 @@ using Distances
 using NPZ
 using Dates
 using ProgressMeter
+using ThreadsX
 
 
 function test_1()
@@ -68,27 +69,51 @@ end
 function test_4()
     # cluster online   2020.10.18
     # plant = dataset("cluster", "plantTraits")   # plantTraits数据集, 有missing, 返回的是DataFrame格式的数据
-    iris = dataset("datasets", "iris")  # iris花的数据
-    x = convert(Matrix, iris[:, 1:4])
-    println(size(x))
-    x = x'
+    # iris = dataset("datasets", "iris")  # iris花的数据
+    # x = convert(Matrix, iris[:, 1:4])
+    # println(size(x))
+    # # x = transpose(x)
+    # println(typeof(x))
+    println("test_4()")
+    t0 = Dates.now()
+    if Sys.iswindows()
+        feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
+    else
+        # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
+        feats = npzread("/data/zhangyong/data/longhu_1/sorted_2/feats.npy")
+    end
+    
+    feats = convert(Matrix, feats[1:10000, 1:end])
+    size_1 = size(feats)[1]
+    t1 = Dates.now()
+    println("used: ", (t1 - t0).value/1000, "s, ", size_1)
+    # println(size(feats))
 
     op = ClusterOp()
-
-    b = fit!(op, x)
-    println(b)
+    b = nothing
+    @showprogress for i in 1:size_1
+        x1 = feats[i,1:end]
+        # println(typeof(x1))
+        b = fit!(op, x1)
+        # b = ThreadsX.reduce(op, x1)
+        # println(op.nodes)
+    end
+    t2 = Dates.now()
+    println(size_1, ", id:", length(Set(values(op.nodes))))
+    # println(op.nodes)
+    println("used: ", (t2 - t1).value/1000, "s")
 
 end
 
 # 自定义类型, 结构体
-mutable struct ClusterOp <: OnlineStat{Vector{Float64}}
+mutable struct ClusterOp <: OnlineStat{Vector{Float32}}
     top_k::Int
     th::Float32
     num::Int64
     nodes::Dict
     clusters::Dict
     index::Array
-    # ClusterOp() = new(100, 0.6, 0, Dict(), Dict(), [])  # init
+    ClusterOp() = new(100, 0.6, 0, Dict(), Dict(), [])  # init
     # 调用外部api, 麻烦. 需要个julia api.  index=milvus_api_1.IndexMilvus(dim=384, repo="repo1")
 end
 
@@ -105,7 +130,7 @@ function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
     feats_gallary = vcat((hcat(i...) for i in feats_gallary)...)  # 转换 shape
 
     feats_query = reshape(feat_1, (1,384))
-    cos = feats_query * feats_gallary'  # cos相似度
+    cos = feats_query * feats_gallary'  # cos相似度. 全取,没有top_k
 
     # init
     o.nodes[o.num] = o.num
@@ -125,6 +150,7 @@ function cluster_hac()
     增量的层次聚类. 模拟流式
 
     """
+    println("cluster_hac()")
     t0 = Dates.now()
     if Sys.iswindows()
         feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
@@ -132,14 +158,14 @@ function cluster_hac()
         # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
         feats = npzread("/data/zhangyong/data/longhu_1/sorted_2/feats.npy")
     end
-    # feats = feats[1:10000, 1:end]
+    feats = feats[1:10000, 1:end]
     size_1 = size(feats)[1]
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, "s, ", size_1)
 
     feats_1 = []  # repo
     count = 0
-    threshold = 0.55   # 0.6
+    threshold = 0.6   # 0.6
     nodes = Dict()  
     clusters = Dict()
     @showprogress for i in range(1, stop=size_1)    # n*(n-1)/2.   @showprogress 
@@ -201,7 +227,38 @@ end
 
 
 
-test_2()
-# test_4()
+# test_2()
+test_4()
 # cluster_hac()
 
+
+
+#=
+JULIA_NUM_THREADS=4
+
+
+cluster_hac()
+used: 6.714s, 10000
+labels: 10000 id:577
+used: 1698.207s, 10000
+
+test_4()
+used: 6.607s, 10000
+10000, id:577
+used: 1685.058s
+
+结论: 这两个增量的实现, 效果和速度 没啥区别
+
+
+问题:  2020.10.22
+0. 文档不够, 功能不够.
+1. 并行 b=ThreadsX.reduce(op, x1) 失败
+2. 没有可视化: graph可视化, matrix可视化
+3. 没有flink高级, 没有graph优化
+4. 没有souce和sink接口. 
+5. 没有资源调度, 任务调度. 
+
+OnlineStats 没有执行图, 没有 lazy执行, 跟flink原理不一样??
+怎么动态增量的绘图画曲线?  
+
+=#

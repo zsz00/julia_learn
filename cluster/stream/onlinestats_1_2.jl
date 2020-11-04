@@ -112,8 +112,8 @@ mutable struct ClusterOp <: OnlineStat{Vector{Float32}}
     num::Int64
     nodes::Dict
     clusters::Dict
-    index::Array
-    ClusterOp() = new(100, 0.6, 0, Dict(), Dict(), [])  # init
+    collection_name::String
+    ClusterOp() = new(100, 0.6, 0, Dict(), Dict(), milvus_api.creat_collection(collection_name, 384))  # init
     # 调用外部api, 麻烦. 需要个julia api.  index=milvus_api_1.IndexMilvus(dim=384, repo="repo1")
 end
 
@@ -125,6 +125,14 @@ function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
 
     # 调用api
     push!(o.index, feat_1)
+
+    vectors = [y]
+    ids = [o.num]
+
+    milvus_api.add_obj(collection_name, vectors, ids)
+    milvus_api.search_obj(collection_name, vectors)
+
+
     # dists, idxs = o.index.search(feat_1, o.top_k)
     feats_gallary = o.index
     feats_gallary = vcat((hcat(i...) for i in feats_gallary)...)  # 转换 shape
@@ -235,7 +243,6 @@ test_4()
 
 #=
 JULIA_NUM_THREADS=4
-
 
 cluster_hac()
 used: 6.714s, 10000

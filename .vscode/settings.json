@@ -4,5 +4,7 @@
     "[julia]": {
         "editor.quickSuggestions": true
     },
-    "julia.executablePath": "/home/zhangyong/julia-1.5.2/bin/julia"
+    "julia.executablePath": "/home/zhangyong/julia-1.5.2/bin/julia",
+    "julia.execution.codeInREPL": true,
+    "editor.mouseWheelZoom": true
 }

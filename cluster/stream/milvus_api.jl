@@ -170,7 +170,7 @@ function test_2()
 
     @showprogress for i in 1:size_1
         vectors = [feats[i,1:end]]
-        qurey_vectors = [feat for feat in feats[i:i+1,:]]
+        qurey_vectors = [[feat] for feat in feats[i:i+1,:]]
         println(size(qurey_vectors))
         ids = [string(i), string(i+1)]
 

@@ -38,6 +38,12 @@ end
 
 function creat_collection(collection_name, dim)
     println("creat_collection")
+    try
+        delete_collection(collection_name)
+        println("delete coll ok")
+    catch
+        println("delete error")
+    end
 
     body_dict = 
         Dict("collection_name" => collection_name,
@@ -47,11 +53,15 @@ function creat_collection(collection_name, dim)
 
     # body = JSON.json(body_dict)   # body_dict
     body = JSON3.write(body_dict)
+    try
+        creat_coll = commen_api("collections", "POST", body)  # 创建collection
+        println(creat_coll)
+    catch 
+        println("create coll error")
+    end
     
-    creat_coll = commen_api("collections", "POST", body)  # 创建collection
-    println(creat_coll)
-
-    get_colls = commen_api("collections", "GET", "")  # 获取到所有collections的信息
+    # get_colls = commen_api("collections", "GET", "")  # 获取到所有collections的信息
+    
     get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
     println(get_coll_info)
 
@@ -70,6 +80,13 @@ function delete_collection(collection_name)
 end
 
 
+function add_obj_batch(collection_name, vectors, ids)
+    vectors_batch = []
+    
+
+end
+
+
 function add_obj(collection_name, vectors, ids)
     # println("add_obj")
     body_dict = 
@@ -81,16 +98,25 @@ function add_obj(collection_name, vectors, ids)
     body = JSON3.write(body_dict)
     # println(body)
     
-    creat_coll = commen_api("collections/$collection_name/vectors", "POST", body)  # 创建collection
-    # println(creat_coll)
+    add_obj = commen_api("collections/$collection_name/vectors", "POST", body)  # add_obj, 不是实时commit的
+    # println(add_obj)
+    flush_coll(collection_name)  # 频繁flush会很慢. 所以要batch的add
 
 end
 
+function flush_coll(collection_name)
 
-function search_obj(collection_name, vectors)
+    body_dict = 
+        Dict("flush" =>  Dict("collection_names" => [collection_name]))
+    body = JSON3.write(body_dict)
+    commen_api("/system/task", "PUT", body)
+
+end
+
+function search_obj(collection_name, vectors, top_k)
     # println("search_obj")
     body_dict = Dict("search" => Dict(
-                    "topk" => 100,
+                    "topk" => top_k,
                     # "partition_tags" => [string],
                     # "file_ids" => [string],
                     "vectors" => vectors,
@@ -106,21 +132,23 @@ function search_obj(collection_name, vectors)
 end
 
 
-function prcoess_results_3(results, topk, size)
-    # size = len(results)
-    dists = np.zeros((size, topk), "float")
-    idxs = np.zeros((size, topk), "int32")
+function prcoess_results_3(results, topk)
+    size = results["num"]
+    result = results["result"]
 
-    for i in range(size)
-        for j in range(topk)
+    dists = zeros(Float32, (size, topk))
+    idxs = zeros(Int32, (size, topk))
+
+    for i in 1:size
+        for j in 1:topk
             try
-                data = results[i][j]
-                if data.id == -1
+                data = result[i][j]
+                if data["id"] == "-1"
                     dists[i, j] = -1
                     idxs[i, j] = -1
                 else
-                    dists[i, j] = data.distance
-                    idxs[i, j] = data.id
+                    dists[i, j] = parse(Float32, data["distance"])
+                    idxs[i, j] = parse(Int32, data["id"])
                 end
             catch
                 dists[i, j] = -1
@@ -136,18 +164,23 @@ end
 
 function test_1()
     collection_name = "test_coll_1"
-    delete_collection(collection_name)
-    creat_collection(collection_name, 384)
+    # delete_collection(collection_name)
+    creat_collection(collection_name, 2)  # 384
     # delete_collection(collection_name)
 
     # vectors = [[1.0, 2.0], [2.2, 3.2], [3.1, 4.1]]
     # ids = ["1","2","3"]  # string list
-    # add_obj(collection_name, vectors, ids)
+    # # add_obj(collection_name, vectors, ids)
 
-    # query_vectors = [[2.2, 3.2]]
-    # search_obj(collection_name, query_vectors)
-
+    # top_k = 10
+    # query_vectors = [[2.2, 3.2], [1.1, 2.2]]
+    # rank_result = search_obj(collection_name, query_vectors, top_k)
+    # # println(rank_result)
+    # dists, idxs = prcoess_results_3(rank_result, 5)
+    # println(dists)
+    # println(idxs)
 end
+
 
 function test_2()
     println("test_2()")
@@ -159,27 +192,31 @@ function test_2()
         feats = npzread("/data/zhangyong/data/longhu_1/sorted_2/feats.npy")
     end
 
-    feats = convert(Matrix, feats[1:100000, 1:end])
+    feats = convert(Matrix, feats[1:1000, 1:end])
     size_1 = size(feats)[1]
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, "s, ", size_1)
     # println(size(feats))
-    collection_name = "test_coll_1"
+    collection_name = "test_coll_2"
+    creat_collection(collection_name, 384)  # 384
     get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
     println(get_coll_info)
-
+    top_k = 100
     @showprogress for i in 1:size_1
         vectors = [feats[i,1:end]]
-        qurey_vectors = [convert(Array{Float32, 1}, feat) for feat in feats[i:i+1,1:end]]
-        println(size(qurey_vectors))
-        ids = [string(i), string(i+1)]
+        qurey_vectors = [feats[i,1:end]]
+        # println(size(qurey_vectors))
+        ids = [string(i)]
 
         add_obj(collection_name, vectors, ids)   # add
-        rank_result = search_obj(collection_name, qurey_vectors)  # rank
-        if i == 5
+        rank_result = search_obj(collection_name, qurey_vectors, top_k)  # rank
+        
+        dists, idxs = prcoess_results_3(rank_result, 5)  # 解析rank结果
+        if i == 10
             println(rank_result)
+            println(dists)
+            println(idxs)
         end
-        # prcoess_results_3(rank_result, topk, size)  # 解析rank结果
 
     end
 
@@ -187,7 +224,7 @@ end
 
 
 # test_1()
-test_2()
+# test_2()
 
 
 #=

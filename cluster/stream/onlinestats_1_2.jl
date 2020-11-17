@@ -4,10 +4,11 @@ using CSV, Plots
 using RDatasets
 using Clustering
 using Distances
-using NPZ
+using NPZ, JLD2
 using Dates
 using ProgressMeter
 using ThreadsX
+include("milvus_api.jl")
 
 
 function test_1()
@@ -68,12 +69,6 @@ end
 
 function test_4()
     # cluster online   2020.10.18
-    # plant = dataset("cluster", "plantTraits")   # plantTraits数据集, 有missing, 返回的是DataFrame格式的数据
-    # iris = dataset("datasets", "iris")  # iris花的数据
-    # x = convert(Matrix, iris[:, 1:4])
-    # println(size(x))
-    # # x = transpose(x)
-    # println(typeof(x))
     println("test_4()")
     t0 = Dates.now()
     if Sys.iswindows()
@@ -83,7 +78,7 @@ function test_4()
         feats = npzread("/data/zhangyong/data/longhu_1/sorted_2/feats.npy")
     end
     
-    feats = convert(Matrix, feats[1:1000, 1:end])
+    feats = convert(Matrix, feats[1:195000, 1:end])
     size_1 = size(feats)[1]
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, "s, ", size_1)
@@ -94,28 +89,36 @@ function test_4()
     @showprogress for i in 1:size_1
         x1 = feats[i,1:end]
         # println(typeof(x1))
-        b = fit!(op, x1)
-        # b = ThreadsX.reduce(op, x1)  # 报错
+        # b = fit!(op, x1)   # x1 要是更复杂的对象,包括质量和时空.
+        ThreadsX.reduce(op, x1)  # 报错
         # println(op.nodes)
     end
     t2 = Dates.now()
-    println(size_1, ", id:", length(Set(values(op.nodes))))
+    
+    labels = values(op.nodes)
+    println(size_1, ", id:", length(Set(labels)))
     # println(op.nodes)
     println("used: ", (t2 - t1).value/1000, "s")
+
+    @save "nodes_1.jld2" labels
 
 end
 
 # 自定义类型, 结构体
 mutable struct ClusterOp <: OnlineStat{Vector{Float32}}
-    top_k::Int
+    top_k::Int32
     th::Float32
+    batch_size::Int32
     num::Int64
     nodes::Dict
     clusters::Dict
-    collection_name::String
-    ClusterOp() = new(100, 0.6, 0, Dict(), Dict(), milvus_api.creat_collection(collection_name, 384))  # init
+    collection_name::String   # init index
+    vectors::Array
+    ids::Array
+    ClusterOp() = new(100, 0.5, 1000, 0, Dict(), Dict(), creat_collection("repo_test_3", 384), [], [])  # init
     # 调用外部api, 麻烦. 需要个julia api.  index=milvus_api_1.IndexMilvus(dim=384, repo="repo1")
 end
+
 
 # 重构 fit方法, 实现op功能
 function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
@@ -123,32 +126,38 @@ function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
     # feat_1 = transform(feature)   # 反序列化
     feat_1 = y
 
-    # 调用api
-    push!(o.index, feat_1)
-
-    vectors = [y]
-    ids = [o.num]
-
-    milvus_api.add_obj(collection_name, vectors, ids)
-    milvus_api.search_obj(collection_name, vectors)
-
-
-    # dists, idxs = o.index.search(feat_1, o.top_k)
-    feats_gallary = o.index
-    feats_gallary = vcat((hcat(i...) for i in feats_gallary)...)  # 转换 shape
-
-    feats_query = reshape(feat_1, (1,384))
-    cos = feats_query * feats_gallary'  # cos相似度. 全取,没有top_k
-
     # init
     o.nodes[o.num] = o.num
     o.clusters[o.num] = [o.num]
 
-    idx_1 = findall(cos .> o.th)
-    idx_y = Tuple.(idx_1)
+    # 调用api
+    # vectors = [y]
+    # ids = [string(o.num)]
+    push!(o.vectors, y)
+    push!(o.ids, string(o.num))
 
-    for (_, j) in idx_y  # 遍历每个连接
-        union_2!(o.num, j, o.nodes, o.clusters)
+    # 批处理. 是不是可以加个window op 
+    if o.num % o.batch_size == 0
+        add_obj(o.collection_name, o.vectors, o.ids)   # add  慢
+        rank_result = search_obj(o.collection_name, o.vectors, o.top_k)   # search rank
+        dists, idxs = prcoess_results_3(rank_result, o.top_k)
+        o.vectors = []
+        o.ids = []
+        # idx_1 = findall(dists .> o.th)
+        # idx_y = idxs[idx_1]   # Tuple.(idx_1)
+        # cos = dists[idx_1]
+        # if  o.num ÷ o.batch_size == 1
+        #     println("=====: ", cos, "  ", Tuple.(idx_1), " ", dists, idx_y)
+        # end
+        batch = o.num ÷ o.batch_size - 1
+        for i in 1:o.batch_size
+            idx_1 = findall(dists[i,:] .> o.th)
+            idx_y = idxs[i,:][idx_1]   # Tuple.(idx_1)
+
+            for j in idx_y  # 遍历每个连接
+                union_2!(batch*o.batch_size+i, j, o.nodes, o.clusters)
+            end
+        end
     end
 end
 
@@ -235,15 +244,16 @@ end
 
 
 
-# test_2()
-test_4()
+test_2()
+# test_4()
 # cluster_hac()
 
 
 
 #=
 JULIA_NUM_THREADS=4
-
+---------------------------------
+th=0.6
 cluster_hac()
 used: 6.714s, 10000
 labels: 10000 id:577
@@ -255,17 +265,26 @@ used: 6.607s, 10000
 used: 1685.058s
 
 结论: 这两个增量的实现, 效果和速度 没啥区别
+调用的api的:
+10000, id:577
+used: 564.013s
+----------------------------------
+
+
 
 
 问题:  2020.10.22
-0. 文档不够, 功能不够.
+0. onlinestats文档不够, 功能不够.
 1. 并行 b=ThreadsX.reduce(op, x1) 失败
 2. 没有可视化: graph可视化, matrix可视化
 3. 没有flink高级, 没有graph优化
 4. 没有souce和sink接口. 
-5. 没有资源调度, 任务调度. 
+5. 没有资源调度, 任务调度. dagger
 
-OnlineStats 没有执行图, 没有 lazy执行, 跟flink原理不一样??
+OnlineStats 没有执行图, 没有lazy执行, 跟flink原理不一样??
 怎么动态增量的绘图画曲线?  
 
+可以做一些事, 虽然不够完善. 
+
 =#
+

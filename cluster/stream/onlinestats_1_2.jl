@@ -8,7 +8,7 @@ using NPZ, JLD2
 using Dates
 using ProgressMeter
 using ThreadsX
-include("milvus_api.jl")
+include("milvus_api.jl")   # milvus_api_2
 
 
 function test_1()
@@ -89,8 +89,8 @@ function test_4()
     @showprogress for i in 1:size_1
         x1 = feats[i,1:end]
         # println(typeof(x1))
-        # b = fit!(op, x1)   # x1 要是更复杂的对象,包括质量和时空.
-        ThreadsX.reduce(op, x1)  # 报错
+        b = fit!(op, x1)   # x1 要是更复杂的对象,包括质量和时空.
+        # ThreadsX.reduce(op, x1)  # 报错
         # println(op.nodes)
     end
     t2 = Dates.now()
@@ -116,7 +116,7 @@ mutable struct ClusterOp <: OnlineStat{Vector{Float32}}
     vectors::Array
     ids::Array
     ClusterOp() = new(100, 0.5, 1000, 0, Dict(), Dict(), creat_collection("repo_test_3", 384), [], [])  # init
-    # 调用外部api, 麻烦. 需要个julia api.  index=milvus_api_1.IndexMilvus(dim=384, repo="repo1")
+    # 调用外部api.  index=milvus_api_1.IndexMilvus(dim=384, repo="repo1")
 end
 
 
@@ -131,24 +131,20 @@ function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
     o.clusters[o.num] = [o.num]
 
     # 调用api
-    # vectors = [y]
+    # vectors = [feat_1]
     # ids = [string(o.num)]
-    push!(o.vectors, y)
+    push!(o.vectors, feat_1)
     push!(o.ids, string(o.num))
-
-    # 批处理. 是不是可以加个window op 
+    # push!(o.ids, o.num)
+    # batch/window. 批处理. 是不是可以加个window op 
     if o.num % o.batch_size == 0
-        add_obj(o.collection_name, o.vectors, o.ids)   # add  慢
+        # add_obj(o.collection_name, o.vectors, o.ids)   # add  慢
+        insert_obj(o.collection_name, o.vectors, o.ids)   # add  慢
         rank_result = search_obj(o.collection_name, o.vectors, o.top_k)   # search rank
         dists, idxs = prcoess_results_3(rank_result, o.top_k)
         o.vectors = []
         o.ids = []
-        # idx_1 = findall(dists .> o.th)
-        # idx_y = idxs[idx_1]   # Tuple.(idx_1)
-        # cos = dists[idx_1]
-        # if  o.num ÷ o.batch_size == 1
-        #     println("=====: ", cos, "  ", Tuple.(idx_1), " ", dists, idx_y)
-        # end
+
         batch = o.num ÷ o.batch_size - 1
         for i in 1:o.batch_size
             idx_1 = findall(dists[i,:] .> o.th)
@@ -244,8 +240,8 @@ end
 
 
 
-test_2()
-# test_4()
+# test_2()
+test_4()
 # cluster_hac()
 
 
@@ -264,14 +260,15 @@ used: 6.607s, 10000
 10000, id:577
 used: 1685.058s
 
+th=0.5
+195000, id:3721
+used: 577.543s
+
 结论: 这两个增量的实现, 效果和速度 没啥区别
 调用的api的:
 10000, id:577
 used: 564.013s
 ----------------------------------
-
-
-
 
 问题:  2020.10.22
 0. onlinestats文档不够, 功能不够.
@@ -285,6 +282,9 @@ OnlineStats 没有执行图, 没有lazy执行, 跟flink原理不一样??
 怎么动态增量的绘图画曲线?  
 
 可以做一些事, 虽然不够完善. 
+
+更新api后,结果不对
+
 
 =#
 

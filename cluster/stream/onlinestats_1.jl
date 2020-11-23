@@ -123,7 +123,7 @@ function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
     # feat_1 = transform(feature)   # 反序列化
     feat_1 = y
 
-    # 调用api
+    # cos
     push!(o.index, feat_1)
     # dists, idxs = o.index.search(feat_1, o.top_k)
     feats_gallary = o.index

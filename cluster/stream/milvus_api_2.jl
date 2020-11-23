@@ -1,4 +1,4 @@
-# milvus api. v0.10   2020.11.4
+# milvus api. v0.11     2020.11.4
 using HTTP, JSON3
 using NPZ
 using Dates, BenchmarkTools
@@ -38,31 +38,43 @@ end
 
 
 function creat_collection(collection_name, dim)
-    println("creat_collection")
+    println("creat_collection()")
     try
         delete_collection(collection_name)
         println("delete coll ok")
-    catch
-        println("delete error")
+    catch e
+        println("delete error.  ")
     end
 
     body_dict = 
         Dict("collection_name" => collection_name,
-              "dimension" => dim,
-            #   "index_file_size" => 10000,
-              "metric_type" => "IP")
+            "fields" => [
+                Dict(
+                    "name" => "id",
+                    "type" => "Int32"
+                    # "params" => Dict("dim" => dim)
+                ),
+                Dict(
+                    "name" => "feat",
+                    "type" => "VECTOR_FLOAT",
+                    "params" => Dict("dim" => dim)
+                )
+            ],
+            "segment_row_limit" => 10000,
+            "auto_id" => true
+        )
 
     # body = JSON.json(body_dict)   # body_dict
     body = JSON3.write(body_dict)
+    println(body)
     try
         creat_coll = commen_api("collections", "POST", body)  # 创建collection
         println(creat_coll)
-    catch 
-        println("create coll error")
+    catch e
+        println("create coll error. ", e)
     end
     
     # get_colls = commen_api("collections", "GET", "")  # 获取到所有collections的信息
-    
     get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
     println(get_coll_info)
 
@@ -90,15 +102,25 @@ end
 
 function insert_obj(collection_name, vectors, ids)
     # println("insert_obj")
-    body_dict = 
-        Dict( # "partition_tag" => "test_collection5",
-              "vectors" => vectors,
-              "ids" => ids
-            )
+    entities = []
+    for i in 1:length(vectors)
+        entity = Dict(
+                # "__id" => ids[i],
+                "id" => ids[i],
+                "feat" => vectors[i]
+                )
+        push!(entities, entity)
+        
+    end
+
+    body_dict = Dict( # "partition_tag" => "part",
+        "entities" => entities,
+        "ids" => ids
+    )
 
     body = JSON3.write(body_dict)
     
-    insert_obj = commen_api("collections/$collection_name/vectors", "POST", body)  # insert_obj, 不是实时commit的
+    insert_obj = commen_api("collections/$collection_name/entities", "POST", body)  # insert_obj, 不是实时commit的
     # println(insert_obj)
     flush_coll(collection_name)  # 频繁flush会很慢. 所以要batch的add
 
@@ -115,26 +137,40 @@ end
 
 function search_obj(collection_name, vectors, top_k)
     # println("search_obj")
-    body_dict = Dict("search" => Dict(
-                    "topk" => top_k,
-                    # "partition_tags" => [string],
-                    # "file_ids" => [string],
-                    "vectors" => vectors,
-                    "params" => Dict("nprobe" => 16))
+
+    body_dict = Dict(
+                    "query"=> Dict(
+                        "bool"=> Dict(
+                            "must" => [
+                                Dict("vector"=>
+                                    Dict(
+                                        "feat"=> Dict(
+                                            "params"=> Dict("nprobe"=> 64),
+                                            "topk"=> top_k,
+                                            "metric_type"=> "IP",
+                                            "values"=> vectors
+                                        )
+                                    )
+                                )
+                            ]
+                        ),
+                        "fields" => ["feat"]
+                    )
                 )
 
     body = JSON3.write(body_dict)
     # println(body)
     
-    rank_result = commen_api("collections/$collection_name/vectors", "PUT", body)  # 创建collection
+    rank_result = commen_api("collections/$collection_name/entities", "GET", body)  # 创建collection
     # println(rank_result)
     return rank_result
 end
 
 
 function prcoess_results_3(results, topk)
-    size = results["num"]
-    result = results["result"]
+
+    size = length(results["data"]["result"])   # results["nq"]
+    result = results["data"]["result"]
 
     dists = zeros(Float32, (size, topk))
     idxs = zeros(Int32, (size, topk))
@@ -201,12 +237,13 @@ function test_2()
     creat_collection(collection_name, 384)  # 384
     # get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
     # println(get_coll_info)
-    top_k = 100
+    top_k = 10
     @showprogress for i in 1:size_1
         vectors = [feats[i,1:end]]
         qurey_vectors = [feats[i,1:end]]
         # println(size(qurey_vectors))
-        ids = [string(i)]
+        # ids = [string(i)]
+        ids = [i]
 
         insert_obj(collection_name, vectors, ids)   # add
         rank_result = search_obj(collection_name, qurey_vectors, top_k)  # rank
@@ -224,11 +261,10 @@ end
 
 
 # test_1()
-# test_2()
+test_2()
 
 
 #=
-v0.10
 有两种方式:1.julia写RESTful API调用, 2.调用python的
 1. 创建, 删除 coll
 2. add
@@ -237,7 +273,11 @@ v0.10
 
 https://github.com/milvus-io/milvus/tree/0.11.0/core/src/server/web_impl
 
+v0.11  变化很大
+很多API变化了. creat, insert, search都变了
 
+v0.10 时, ids 是 [string]
+v0.11 时, ids 是 [int]
 test_2()   100000: add+search  13min
 
 =#

@@ -1,4 +1,4 @@
-# online MeanVar  2020.11.18
+# online hac based on Transducers.  2020.11.18
 using Transducers
 using Transducers: R_, start, next, complete, inner, xform, wrap, unwrap, wrapping
 using NPZ, JLD2

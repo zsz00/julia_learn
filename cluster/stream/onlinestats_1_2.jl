@@ -274,8 +274,7 @@ used: 564.013s
 0. onlinestats文档不够, 功能不够.
 1. 并行 b=ThreadsX.reduce(op, x1) 失败
 2. 没有可视化: graph可视化, matrix可视化
-3. 没有flink高级, 没有graph优化
-4. 没有souce和sink接口. 
+3. 没有flink高级, 没有graph优化, 没有souce和sink接口. 
 5. 没有资源调度, 任务调度. dagger
 
 OnlineStats 没有执行图, 没有lazy执行, 跟flink原理不一样??

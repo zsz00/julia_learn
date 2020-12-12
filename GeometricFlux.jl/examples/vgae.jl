@@ -26,7 +26,7 @@ adj_mat = Matrix{Float32}(adjacency_matrix(g))
 train_data = [(FeaturedGraph(adj_mat.*M, Matrix{Float32}(features)), adj_mat) for M in masks]
 
 ## Model
-model = VGAE(GCNConv(num_features=>h_dim, relu; cache=false), h_dim, z_dim, σ)
+model = VGAE(GCNConv(num_features=>h_dim, relu;), h_dim, z_dim, σ)
 encoder = model.encoder
 decoder = model.decoder
 ps = Flux.params(model)
@@ -38,7 +38,7 @@ function loss(fg, Y, X=node_feature(fg), T=eltype(X), β=one(T), λ=T(0.01); deb
     Z = node_feature(encoder(fg))
     kl_q_p = -T(0.5) * sum(one(T) .+ T(2).*logσ̂ .- μ̂.^2 .- exp.(T(2).*logσ̂))
     logp_y_z = -sum(logitbinarycrossentropy(decoder(Z), Y, agg=identity)) / size(Y,2)
-    l2reg = sum(l2_norm, ps)
+    l2reg = sum(l2_norm, ps)   # L2正则项
     debug && begin
         @show kl_q_p
         @show logp_y_z
@@ -54,3 +54,13 @@ opt = ADAM(0.01)
 evalcb() = @show(average_loss(train_data))
 
 @epochs epochs Flux.train!(loss, ps, train_data, opt, cb=throttle(evalcb, 10))
+
+
+#=
+cpu
+[ Info: Epoch 10
+average_loss(train_data) = 2714.2576f0
+average_loss(train_data) = 2712.939f0
+
+
+=#

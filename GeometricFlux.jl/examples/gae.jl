@@ -1,6 +1,6 @@
 using GeometricFlux
 using Flux
-using Flux: throttle
+using Flux: throttle, gpu
 using Flux.Losses: logitbinarycrossentropy
 using Flux: @epochs
 using JLD2
@@ -18,11 +18,11 @@ num_features = 1433
 hidden1 = 32
 hidden2 = 16
 target_catg = 7
-epochs = 200
+epochs = 2000
 
 ## Preprocessing data
 adj_mat = Matrix{Float32}(adjacency_matrix(g)) |> gpu
-train_X = Float32.(features) |> gpu  # dim: num_features * num_nodes
+train_X = Matrix{Float32}(features) |> gpu  # dim: num_features * num_nodes
 train_y = adj_mat  # dim: num_nodes * num_nodes
 
 ## Model
@@ -36,7 +36,10 @@ loss(x, y) = logitbinarycrossentropy(model(x), y)
 ## Training
 ps = Flux.params(model)
 train_data = [(train_X, train_y)]
-opt = ADAM(0.01)
+opt = ADAM(0.05)
 evalcb() = @show(loss(train_X, train_y))
 
 @epochs epochs Flux.train!(loss, ps, train_data, opt, cb=throttle(evalcb, 10))
+
+
+# 编码

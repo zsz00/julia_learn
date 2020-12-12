@@ -13,9 +13,11 @@ using CUDA
 # Model and Data Configuration
 num_nodes = 2708
 num_features = 1433
-hidden = 16
+hidden = 2  # 16
 target_catg = 7
 epochs = 40
+
+CUDA.device!(1)
 
 # Preprocess the data and compute adjacency matrix
 train_X = Matrix{Float32}(features) |> gpu  # dim: num_features * num_nodes
@@ -54,3 +56,7 @@ evalcb() = @show(accuracy(train_X, train_y))
 
 ## Training Loop
 @epochs epochs Flux.train!(loss, ps, train_data, opt, cb=throttle(evalcb, 10))
+
+
+
+# 跑不通, 应该是显存不够

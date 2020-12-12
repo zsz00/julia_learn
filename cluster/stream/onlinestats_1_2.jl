@@ -1,70 +1,13 @@
+# online 流式 聚类处理. OnlineStats
 using OnlineStatsBase
 using OnlineStats
 using CSV, Plots
 using RDatasets
-using Clustering
-using Distances
 using NPZ, JLD2
 using Dates
 using ProgressMeter
 using ThreadsX
 include("milvus_api.jl")   # milvus_api_2
-
-
-function test_1()
-    # op = Series(Mean(), Variance(), P2Quantile(), Extrema())
-    op = Series(Mean(), Variance())
-
-    a = fit!(op, 1.0)
-    print(a)
-    
-    b = fit!(a, [1,2,3])   # randn(5)   a, b is operation 
-    print(b)
-
-    c = merge!(a, b)
-    d = value(c)
-    print(c, d)
-
-end
-
-
-function test_2()
-    # https://joshday.github.io/OnlineStats.jl/latest/bigdata/
-    rows = CSV.Rows(open("cluster/stream/data/iris.txt"); reusebuffer=true)
-    # rows = CSV.Rows(open("data/iris.txt"); reusebuffer = true)
-    # rows = dataset("datasets", "iris")  # iris花的数据
-    itr = (row.variety => parse(Float64, row.sepal_length) for row in rows)
-    println(itr)
-    
-    o = GroupBy(String, Hist(4:0.25:8))
-    # o = GroupBy(String, CountMap())
-    b = fit!(o, itr)
-    println(b)
-    plot(o, layout=(3,1))
-    
-end
-
-
-function test_3()
-    # cluster offline
-    # plant = dataset("cluster", "plantTraits")   # plantTraits数据集, 有missing, 返回的是DataFrame格式的数据
-    iris = dataset("datasets", "iris")  # iris花的数据
-    x = convert(Matrix, iris[:, 1:4])
-    println(size(x))
-    x = x'
-    # dists = euclidean(x, x)
-    dists = pairwise(Euclidean(), x, x);   # 求L2距离/欧式距离. 和faiss的计算结果不同. 挺快的. 单进程
-    println(size(dists))
-    result = hclust(dists, linkage=:average, uplo=:U)   # 层次聚类(最小距离)  average single
-    # println(result)
-    # Distance matrix should be square. mat必须是n*n的对称矩阵. 或者 AbstractArray{T,2}
-    println("result:")
-    println(size(result.merges), result.heights, result.merges)
-    aa = cutree(result; h=1)
-    println(aa)
-    println(size(aa), " id:", length(Set(aa)))
-
-end
 
 
 function test_4()
@@ -97,7 +40,6 @@ function test_4()
     
     labels = values(op.nodes)
     println(size_1, ", id:", length(Set(labels)))
-    # println(op.nodes)
     println("used: ", (t2 - t1).value/1000, "s")
 
     @save "nodes_1.jld2" labels
@@ -239,28 +181,20 @@ function union_2!(i, j, nodes, clusters)
 end
 
 
-
-# test_2()
 test_4()
 # cluster_hac()
 
 
 
 #=
+2020.10, 2020.11
 JULIA_NUM_THREADS=4
 ---------------------------------
-th=0.6
-cluster_hac()
-used: 6.714s, 10000
-labels: 10000 id:577
-used: 1698.207s, 10000
+using milvus api
+batch 
 
-test_4()
-used: 6.607s, 10000
-10000, id:577
-used: 1685.058s
-
-th=0.5
+test_4()  2020.11.25
+th=0.5  
 195000, id:3721
 used: 577.543s
 
@@ -270,8 +204,8 @@ used: 577.543s
 used: 564.013s
 ----------------------------------
 
-问题:  2020.10.22
-0. onlinestats文档不够, 功能不够.
+OnlineStats问题:  2020.10.22
+0. OnlineStats文档不够, 功能不够.
 1. 并行 b=ThreadsX.reduce(op, x1) 失败
 2. 没有可视化: graph可视化, matrix可视化
 3. 没有flink高级, 没有graph优化, 没有souce和sink接口. 
@@ -281,8 +215,6 @@ OnlineStats 没有执行图, 没有lazy执行, 跟flink原理不一样??
 怎么动态增量的绘图画曲线?  
 
 可以做一些事, 虽然不够完善. 
-
-更新api后,结果不对
 
 
 =#

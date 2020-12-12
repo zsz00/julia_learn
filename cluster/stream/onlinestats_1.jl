@@ -1,3 +1,4 @@
+# online 流式 聚类处理. OnlineStats
 using OnlineStatsBase
 using OnlineStats
 using CSV, Plots
@@ -145,7 +146,29 @@ function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
 end
 
 
-function cluster_hac()
+function union_2!(i, j, nodes, clusters)
+    id_1 = nodes[i]
+    id_2 = nodes[j]
+    if id_1 == id_2  # 查
+        return
+    else
+        # 更新 set
+        if length(clusters[id_1]) >= length(clusters[id_2])  # 更新小的cluster到大的中
+            id_max, id_min = id_1, id_2
+        else
+            id_max, id_min = id_2, id_1
+        end
+
+        for idx_ in clusters[id_min]  # 把id_2的转为id_1
+            nodes[idx_] = id_max
+        end
+        append!(clusters[id_max], pop!(clusters, id_min))  # 合并
+    end
+
+end
+
+
+function cluster_hac_1()
     """
     增量的层次聚类. 模拟流式
 
@@ -184,14 +207,13 @@ function cluster_hac()
         nodes[i] = i
         clusters[i] = [i] 
 
-        # idx_1 = findall(x-> x > threshold, cos)
         idx_1 = findall(cos .> threshold)
         idx_1 = Tuple.(idx_1)
         # println(cos)
         # println(idx_1)
 
         for (_, j) in idx_1
-            union_2!(i, j, nodes, clusters)  # 并查集, 合并
+            union_2!(i, j, nodes, clusters)  # 并查集, 合并. 基于dict的
         end
 
     end
@@ -204,40 +226,17 @@ function cluster_hac()
 end
 
 
-function union_2!(i, j, nodes, clusters)
-    id_1 = nodes[i]
-    id_2 = nodes[j]
-    if id_1 == id_2  # 查
-        return
-    else
-        # 更新 set
-        if length(clusters[id_1]) >= length(clusters[id_2])  # 更新小的cluster到大的中
-            id_max, id_min = id_1, id_2
-        else
-            id_max, id_min = id_2, id_1
-        end
-
-        for idx_ in clusters[id_min]  # 把id_2的转为id_1
-            nodes[idx_] = id_max
-        end
-        append!(clusters[id_max], pop!(clusters, id_min))  # 合并
-    end
-
-end
-
-
-
 # test_2()
-# test_4()
-# cluster_hac()
+test_4()
+# cluster_hac_1()
 
 
 
 #=
+2020.10
 JULIA_NUM_THREADS=4
 
-
-cluster_hac()
+cluster_hac_1()
 used: 6.714s, 10000
 labels: 10000 id:577
 used: 1698.207s, 10000

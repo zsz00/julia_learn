@@ -37,6 +37,7 @@ function add(dic, k, v)
     push!(dic[k], v)
 end
 
+
 function cluster_jl(dists, idx, th)
     println(size(dists))  # (185091, 1000)
     dists = dists[:,1:end]
@@ -50,9 +51,8 @@ function cluster_jl(dists, idx, th)
     size_1 = size(dists)[1]
     rank = zeros(Int, size_1)
     same = Array(range(1,size_1, step=1))
-
     Threads.@threads for i in range(1,size(idx_1)[1],step=1)  # pair数, 量大
-        same, rank = union!(idx_1[i][1], ys[i], same, rank)
+        same, rank = union!(idx_1[i][1], ys[i], same, rank)   # 基于数组的
     end
     labels = [find(i, same) for i in range(1,size_1,step=1)]
     labels = labels .-1
@@ -100,7 +100,7 @@ function cluster_jl_2(mat_csr, th)
 end
 
 
-function cluster_1()
+function cluster_one()
     ENV["JULIA_NUM_THREADS"]=40
     println("load mat...")
     dists = np.load("/data/yongzhang/cluster/data_3/clean_2/out_disk_2_1/mat.npy")  # 19G*2 mem
@@ -114,6 +114,7 @@ function cluster_1()
     end
     println("used: ", (Dates.now()-time1).value/1000, " s")
 end
+
 
 function cluster_all()
     # x = features = np.load(raw"D:\download\features\512.fea.npy")
@@ -134,7 +135,8 @@ function cluster_all()
 end
 
 
-function cluster_2()
+function cluster_all_2()
+    # 跑稀疏数据的
     # ENV["JULIA_NUM_THREADS"]=10
     scipy = pyimport("scipy.sparse")
     load_npz = scipy.load_npz
@@ -153,11 +155,12 @@ function cluster_2()
 end
 
 
-@time cluster_2()
+@time cluster_all_2()
 
 
 
 #=
+2020.2
 (3742293,) (3742293,)
 100%|##########| 3742293/3742293 [00:13<00:00, 287073.56it/s]
 cluster: img: 185091 id: 59732

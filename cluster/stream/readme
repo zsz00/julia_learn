@@ -6,7 +6,8 @@ online cluster
 onlinestats_1 + milvus_api
 
 
-
+需要:
+dataloader
 parse
 knn
 

@@ -40,13 +40,22 @@ function GCNConv(adj::AbstractMatrix, ch::Pair{<:Integer,<:Integer}, σ = identi
     GCNConv(T.(init(ch[2], ch[1])), b, σ, fg)
 end
 
-@functor GCNConv
-
-function (g::GCNConv)(A::AbstractMatrix, X::AbstractMatrix)
-    L = normalized_laplacian(A, eltype(X); selfloop=true)
-    L = convert(typeof(X), L)  # ensure L has the same type as X, especially X::CuArray
-    g.σ.(g.weight * X * L .+ g.bias)
+function GCNConv(fg::FeaturedGraph, ch::Pair{<:Integer,<:Integer}, σ = identity;
+                 init=glorot_uniform, T::DataType=Float32, bias::Bool=true)
+    b = bias ? T.(init(ch[2])) : zeros(T, ch[2])
+    GCNConv(T.(init(ch[2], ch[1])), b, σ, fg)
 end
+
+@functor GCNConv
+# 功能函数, 实现GCNConv的功能
+function (g::GCNConv)(A::AbstractMatrix, X::AbstractMatrix)
+    L̃ = normalized_laplacian(A, eltype(X); selfloop=true)
+    L̃ = convert(typeof(X), L̃)  # ensure L has the same type as X, especially X::CuArray
+    
+    g.σ.(g.weight * X * L̃ .+ g.bias)
+end
+
+(g::GCNConv)(A::AbstractMatrix, X::Transpose{S,R}) where {S,R<:AbstractMatrix} = g(A, R(X))
 
 function (g::GCNConv)(X::AbstractMatrix{T}) where {T}
     @assert has_graph(g.fg) "A GCNConv created without a graph must be given a FeaturedGraph as an input."
@@ -133,9 +142,12 @@ function (c::ChebConv)(X::AbstractMatrix{T}) where {T<:Real}
     @assert has_graph(c.fg) "A ChebConv created without a graph must be given a FeaturedGraph as an input."
     g = graph(c.fg)
     L̃ = scaled_laplacian(g, T)
-    L̃ = convert(typeof(X), L̃)
+    L̃ = convert(typeof(X), L̃)  # ensure L̃ has the same type as X, especially X::CuArray
+    
     c(L̃, X)
 end
+
+(c::ChebConv)(X::Transpose{T,R}) where {T<:Real,R<:AbstractMatrix} = c(R(X))
 
 function (c::ChebConv)(fg::FeaturedGraph)
     @assert has_graph(fg) "A given FeaturedGraph must contain a graph."
@@ -145,7 +157,8 @@ function (c::ChebConv)(fg::FeaturedGraph)
     end
     X = node_feature(fg)
     L̃ = scaled_laplacian(adjacency_matrix(fg))
-    L̃ = convert(typeof(X), L̃)
+    L̃ = convert(typeof(X), L̃)  # ensure L has the same type as X, especially X::CuArray
+    
     X_ = c(L̃, X)
     FeaturedGraph(g, X_)
 end
@@ -216,11 +229,11 @@ end
 
 message(g::GraphConv, x_i, x_j::AbstractVector, e_ij) = g.weight2 * x_j
 update(g::GraphConv, m::AbstractVector, x::AbstractVector) = g.σ.(g.weight1*x .+ m .+ g.bias)
-function (g::GraphConv)(X::AbstractMatrix)
-    @assert has_graph(g.fg) "A GraphConv created without a graph must be given a FeaturedGraph as an input."
-    fg = FeaturedGraph(graph(g.fg), X)
-    fg_ = g(fg)
-    node_feature(fg_)
+function (gc::GraphConv)(X::AbstractMatrix)
+    @assert has_graph(gc.fg) "A GraphConv created without a graph must be given a FeaturedGraph as an input."
+    g = graph(gc.fg)
+    _, X = propagate(gc, adjacency_list(g), Fill(0.f0, 0, ne(g)), X, :add)
+    X
 end
 (g::GraphConv)(fg::FeaturedGraph) = propagate(g, fg, :add)
 
@@ -254,7 +267,7 @@ struct GATConv{V<:AbstractFeaturedGraph, T <: Real} <: MessagePassing
     fg::V
     weight::AbstractMatrix{T}
     bias::AbstractVector{T}
-    a::AbstractArray{T,3}
+    a::AbstractMatrix{T}
     negative_slope::Real
     channel::Pair{<:Integer,<:Integer}
     heads::Integer
@@ -266,7 +279,7 @@ function GATConv(adj::AbstractMatrix, ch::Pair{<:Integer,<:Integer}; heads::Inte
                  bias::Bool=true, T::DataType=Float32)
     w = T.(init(ch[2]*heads, ch[1]))
     b = bias ? T.(init(ch[2]*heads)) : zeros(T, ch[2]*heads)
-    a = T.(init(2*ch[2], heads, 1))
+    a = T.(init(2*ch[2], heads))
     fg = FeaturedGraph(adjacency_list(adj))
     GATConv(fg, w, b, a, negative_slope, ch, heads, concat)
 end
@@ -276,34 +289,61 @@ function GATConv(ch::Pair{<:Integer,<:Integer}; heads::Integer=1,
                  bias::Bool=true, T::DataType=Float32)
     w = T.(init(ch[2]*heads, ch[1]))
     b = bias ? T.(init(ch[2]*heads)) : zeros(T, ch[2]*heads)
-    a = T.(init(2*ch[2], heads, 1))
+    a = T.(init(2*ch[2], heads))
     GATConv(NullGraph(), w, b, a, negative_slope, ch, heads, concat)
 end
 
 @functor GATConv
 
-function message(g::GATConv, x_i::AbstractVector, x_j::AbstractVector, e_ij)
+# Here the α that has not been softmaxed is the first number of the output message
+function message(g::GATConv, x_i::AbstractVector, x_j::AbstractVector)
     x_i = reshape(g.weight*x_i, :, g.heads)
     x_j = reshape(g.weight*x_j, :, g.heads)
     n = size(x_i, 1)
-    α = vcat(x_i, x_j+zero(x_j)) .* g.a
-    α = reshape(sum(α, dims=1), g.heads)
-    α = leakyrelu.(α, g.negative_slope)
-    α = Flux.softmax(α)
-    reshape(x_j .* reshape(α, 1, g.heads), n*g.heads)
+    e = vcat(x_i, x_j+zero(x_j))
+    e = sum(e .* g.a, dims=1)  # inner product for each head, output shape: (1, g.heads)
+    e = leakyrelu.(e, g.negative_slope)
+    vcat(e, x_j)  # shape: (n+1, g.heads)
+end
+
+# After some reshaping due to the multihead, we get the α from each message, 
+# then get the softmax over every α, and eventually multiply the message by α
+function apply_batch_message(g::GATConv, i, js, X::AbstractMatrix)
+    e_ij = hcat([message(g, get_feature(X, i), get_feature(X, j)) for j = js]...)
+    n = size(e_ij, 1)
+    alphas = Flux.softmax(reshape(view(e_ij, 1, :), g.heads, :), dims=2)
+    msgs = view(e_ij, 2:n, :) .* reshape(alphas, 1, :)
+    reshape(msgs, (n-1)*g.heads, :)
+end
+
+update_batch_edge(g::GATConv, adj, E::AbstractMatrix, X::AbstractMatrix, u) = update_batch_edge(g, adj, X)
+
+function update_batch_edge(g::GATConv, adj, X::AbstractMatrix)
+    n = size(adj, 1)
+    # a vertex must always receive a message from itself
+    Zygote.ignore() do
+        add_self_loop!(adj, n)
+    end
+    hcat([apply_batch_message(g, i, adj[i], X) for i in 1:n]...)
 end
 
 # The same as update function in batch manner
-function update_batch_vertex(g::GATConv, M::AbstractMatrix, X::AbstractMatrix)
-    g.concat || (M = mean(M, dims=2))
-    return M .+ g.bias
+update_batch_vertex(g::GATConv, M::AbstractMatrix, X::AbstractMatrix, u) = update_batch_vertex(g, M)
+
+function update_batch_vertex(g::GATConv, M::AbstractMatrix)
+    M = M .+ g.bias
+    if !g.concat
+        N = size(M, 2)
+        M = reshape(mean(reshape(M, :, g.heads, N), dims=2), :, N)
+    end
+    return M
 end
 
-function (g::GATConv)(X::AbstractMatrix)
-    @assert has_graph(g.fg) "A GATConv created without a graph must be given a FeaturedGraph as an input."
-    fg = FeaturedGraph(graph(g.fg), X)
-    fg_ = g(fg)
-    node_feature(fg_)
+function (gat::GATConv)(X::AbstractMatrix)
+    @assert has_graph(gat.fg) "A GATConv created without a graph must be given a FeaturedGraph as an input."
+    g = graph(gat.fg)
+    _, X = propagate(gat, adjacency_list(g), Fill(0.f0, 0, ne(g)), X, :add)
+    X
 end
 (g::GATConv)(fg::FeaturedGraph) = propagate(g, fg, :add)
 
@@ -360,26 +400,29 @@ end
 message(g::GatedGraphConv, x_i, x_j::AbstractVector, e_ij) = x_j
 update(g::GatedGraphConv, m::AbstractVector, x) = m
 
-function (g::GatedGraphConv)(X::AbstractMatrix)
-    @assert has_graph(g.fg) "A GraphConv created without a graph must be given a FeaturedGraph as an input."
-    fg = FeaturedGraph(graph(g.fg), X)
-    fg_ = g(fg)
-    node_feature(fg_)
+function (ggc::GatedGraphConv)(X::AbstractMatrix{T}) where {T<:Real}
+    @assert has_graph(ggc.fg) "A GraphConv created without a graph must be given a FeaturedGraph as an input."
+    ggc(adjacency_list(ggc.fg), X)
 end
 
-function (g::GatedGraphConv{V,T})(fg::FeaturedGraph) where {V,T<:Real}
-    H = node_feature(fg)
-    m, n = size(H)
-    @assert (m <= g.out_ch) "number of input features must less or equals to output features."
-    (m < g.out_ch) && (H = vcat(H, zeros(T, g.out_ch - m, n)))
+function (ggc::GatedGraphConv{V,T})(fg::FeaturedGraph) where {V,T<:Real}
+    g = graph(fg)
+    H = ggc(adjacency_list(g), node_feature(fg))
+    FeaturedGraph(g, H)
+end
 
-    for i = 1:g.num_layers
-        M = view(g.weight, :, :, i) * H
-        fg_ = propagate(g, FeaturedGraph(graph(fg), M), g.aggr)
-        M = node_feature(fg_)
-        H, _ = g.gru(H, M)
+function (ggc::GatedGraphConv)(adj::AbstractVector{T}, X::AbstractMatrix{S}) where {T<:AbstractVector,S<:Real}
+    H = X
+    m, n = size(H)
+    @assert (m <= ggc.out_ch) "number of input features must less or equals to output features."
+    (m < ggc.out_ch) && (H = vcat(H, zeros(S, ggc.out_ch - m, n)))
+
+    for i = 1:ggc.num_layers
+        M = view(ggc.weight, :, :, i) * H
+        _, M = propagate(ggc, adj, Fill(0.f0, 0, ne(adj)), M, :add)
+        H, _ = ggc.gru(H, M)  # BUG: FluxML/Flux.jl#1381
     end
-    FeaturedGraph(graph(fg), H)
+    H
 end
 
 function Base.show(io::IO, l::GatedGraphConv)
@@ -425,9 +468,9 @@ update(e::EdgeConv, m::AbstractVector, x) = m
 
 function (e::EdgeConv)(X::AbstractMatrix)
     @assert has_graph(e.fg) "A EdgeConv created without a graph must be given a FeaturedGraph as an input."
-    fg = FeaturedGraph(graph(e.fg), X)
-    fg_ = e(fg)
-    node_feature(fg_)
+    g = graph(e.fg)
+    _, X = propagate(e, adjacency_list(g), Fill(0.f0, 0, ne(g)), X, e.aggr)
+    X
 end
 
 (e::EdgeConv)(fg::FeaturedGraph) = propagate(e, fg, e.aggr)

@@ -14,7 +14,7 @@ num_nodes = 2708
 num_features = 1433
 hidden = 16
 target_catg = 7
-epochs = 40
+epochs = 200
 
 # Preprocess the data and compute adjacency matrix
 train_X = Matrix{Float32}(features)  # dim: num_features * num_nodes
@@ -47,9 +47,21 @@ ps = Flux.params(model, node.p);
 ## Training Data
 train_data = [(train_X, train_y)]
 ## Optimizer
-opt = ADAM(0.05)
+opt = ADAM(0.01)
 ## Callback Function for printing accuracies
 evalcb() = @show(accuracy(train_X, train_y))
+evalcb2() = @show(loss(train_X, train_y))
 
 ## Training Loop
-@epochs epochs Flux.train!(loss, ps, train_data, opt, cb=throttle(evalcb, 10))
+@epochs epochs Flux.train!(loss, ps, train_data, opt, cb=throttle([evalcb, evalcb2], 10))
+
+
+# 节点分类
+#= 
+cpu 
+adam(0.01)
+Info: Epoch 200
+accuracy(train_X, train_y) = 0.6643
+
+
+=#

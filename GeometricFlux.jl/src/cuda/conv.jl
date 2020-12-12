@@ -1,10 +1,4 @@
 # Avoid ambiguity
-function update_batch_vertex(g::GATConv, M::AbstractMatrix, X::CuMatrix)
-    M = convert(typeof(X), M)
-    update_batch_vertex(g, M, X)
-end
+update_batch_edge(g::GATConv, adj, E::Fill{S,2,Axes}, X::CuMatrix, u) where {S,Axes} = update_batch_edge(g, adj, X)
 
-function update_batch_vertex(g::GATConv, M::CuMatrix, X::CuMatrix)
-    g.concat || (M = mean(M, dims=2))
-    return M .+ g.bias
-end
+update_batch_vertex(g::GATConv, M::CuMatrix, X::CuMatrix, u) = update_batch_vertex(g, M)

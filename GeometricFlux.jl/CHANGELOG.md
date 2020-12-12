@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.4]
+
+- Adjust edge_index_table API for directed
+- apply_batch_message as API
+- Support CUDA v2.1
+- Refactor
+- Fix bug
+
+## [0.7.3]
+
+- Add bypass_graph
+- Support FeaturedGraph as input graph for GCNConv
+- Add node index for message/update function
+- Add activation function for GraphConv
+- Reexport GraphSignals
+- Support FillArrays v0.10
+- Bug fix
+
 ## [0.7.2]
 
 - Differentiability test

@@ -1,12 +1,13 @@
 using Flux
-using GraphSAGE
+# using GraphSAGE2
+include("../src/graph/graphsage.jl")
 using LightGraphs
 using JLD2
 using Printf
 using MLBase: roc, f1score
 using Random
 using StatsBase
-import Flux: train!, Tracker
+import Flux: train!
 using Flux: onehotbatch, onecold, logitcrossentropy, throttle
 using CSV
 
@@ -44,14 +45,14 @@ function train!(loss, θs::Vector, mini_batches::Vector, opts::Vector; start_opt
     extend training method to allow using different optimizers for different parameters
     """
 
-    ps = Tracker.Params(vcat(collect.(θs)...));
+    ps = Flux.params(vcat(collect.(θs)...));
     for (i,mini_batch) in enumerate(mini_batches)
-        gs = Tracker.gradient(ps) do
+        gs = Flux.gradient(ps) do
             loss(mini_batch...);
         end
 
         for (θ,opt,start_opt) in zip(θs,opts,start_opts)
-            (i > start_opt) && Tracker.update!(opt, θ, gs);
+            (i > start_opt) && Flux.update!(opt, θ, gs);
         end
 
         (i % cb_skip == 0) && cb();
@@ -82,7 +83,7 @@ function read_cora(dim_reduction=false, dim_embed=8)
 
     if dim_reduction  # 降维. 获取feats
         U,S,V = svds(hcat(f...); nsv=dim_embed)[1]
-        UU = U .* sign.(sum(U,dims=1)[:])'
+        UU = U .* svdssign.(sum(U,dims=1)[:])'
         f = [UU'*f_ for f_ in f]
         fbar = mean(f)
         f = [f_ - fbar for f_ in f]
@@ -109,7 +110,7 @@ function train_1()
     dim_feats = size(feats,1)
     dim_out = size(labels,1)   # 7分类
 
-    enc = GraphSAGE.graph_encoder(dim_feats, dim_r, dim_h, repeat(["SAGE_Mean"], 2); σ=relu)
+    enc = graph_encoder(dim_feats, dim_r, dim_h, repeat(["SAGE_Mean"], 2); σ=relu)
     reg = Chain(Dense(dim_r, dim_out), softmax)
     model(node_list) = reg(hcat(enc(G, node_list, u->feats[:,u])...))
     # G::AbstractGraph, node_list::Vector{Int}, node_features::Function
@@ -158,7 +159,7 @@ function train_2()
     # n = LightGraphs.nv(G)
     println(size(train_X), size(train_y), size(features), size(labels))   # (1433, 2708)(7, 2708)
 
-    enc = GraphSAGE.graph_encoder(size(feats,1), dim_r, dim_h, repeat(["SAGE_Mean"], 2); σ=relu)
+    enc = GraphSAGE2.graph_encoder(size(feats,1), dim_r, dim_h, repeat(["SAGE_Mean"], 2); σ=relu)
     reg = Chain(Dense(dim_r, size(labels,1)), softmax)
     model(node_list) = reg(hcat(enc(G, node_list, u->feats[:,u])...))
 
@@ -181,15 +182,14 @@ train_1()
 #=
 2020.12.17
 cd /home/zhangyong/cluster/julia_learn/GeometricFlux.jl/examples
-julia --project=/home/zhangyong/.julia/environments/gcn/Project.toml sage.jl   # 可以跑通
+julia --project=/home/zhangyong/.julia/environments/v1.5/Project.toml sage2.jl   # 可以跑通
 cora dataset:
 0.058,   0.525,   0.858    0.858    # train 50%
 0.000,   0.864,   0.796,   0.783    # train 1%
 
 
-TODO:  2020.12.26
+TODO: 2020.12.26
 1. 支持Flux v0.11
 2. 支持GPU
 3. 支持跑大数据
 =#
-

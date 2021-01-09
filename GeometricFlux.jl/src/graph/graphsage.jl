@@ -1,9 +1,12 @@
-
+#=
+GraphSAGE 
+https://github.com/000Justin000/GraphSAGE
+=#
 using Statistics
 using StatsBase: sample
 using LightGraphs
 using Flux
-
+using Strs
 export graph_encoder
 
 
@@ -47,10 +50,11 @@ end
 
 Flux.@functor AGG
 
+
 # sampler & aggregator
 struct SAGE{F}
     T::F
-    k::Int
+    k::Int  # 抽样个数
     A::AGG
     z::AbstractVector  # default value (when vertex has no edge)
 end
@@ -65,22 +69,26 @@ function (c::SAGE)(G::AbstractGraph, node_list::Vector{Int}, node_features::Func
     # neighbor sampler, 邻居采样
     sampled_nbrs_list = Vector{Vector{Int}}()
     for u in node_list
-        nbrs = inneighbors(G, u)  # 在附近的
-        push!(sampled_nbrs_list, length(nbrs) > k ? sample(nbrs, k, replace=false) : nbrs)
+        nbrs = LightGraphs.inneighbors(G, u)  # 在附近的点
+        # 随机抽样k个点
+        push!(sampled_nbrs_list, length(nbrs) > k ? StatsBase.sample(nbrs, k, replace=false) : nbrs)
     end
 
     # compute hidden vector of unique neighbors
-    unique_nodes = union(node_list, sampled_nbrs_list...)
+    unique_nodes = union(node_list, sampled_nbrs_list...)  # 并集,and
     u2i = Dict{Int,Int}(u=>i for (i,u) in enumerate(unique_nodes))
 
+    # println("T:", T)
     # if this SAGE is not a leaf, then call the child Transformer to get node representation at previous layer
+    # h0 是特征, 第一层的特征.  T是Transformer
     if T != nothing
         h0 = T(G, unique_nodes, node_features)
     else
-        h0 = [f32(node_features(u)) for u in unique_nodes]
+        h0 = [Flux.f32(node_features(u)) for u in unique_nodes]
     end
 
-    # each vector can be decomposed as [h(v)*, h(u)], where * means 'aggregated across v'
+    # aggregator  聚合
+    # each vector can be decomposed(分解) as [h(v)*, h(u)], where * means 'aggregated across v'
     hh = Vector{AbstractVector}()
     cnt = length(node_list)  
     cnt_1 = 0
@@ -88,20 +96,23 @@ function (c::SAGE)(G::AbstractGraph, node_list::Vector{Int}, node_features::Func
         cnt_1 += 1
         if A.S in ["SAGE_GCN"]
             ht = A(vcat([h0[u2i[u]]], [h0[u2i[v]] for v in sampled_nbrs]))
-        elseif A.S in ["SAGE_Mean", "SAGE_Max", "SAGE_Sum", "SAGE_MaxPooling"]
+        elseif A.S in ["SAGE_Mean", "SAGE_Max", "SAGE_Sum", "SAGE_MaxPooling"] 
             hn = length(sampled_nbrs) != 0 ? A([h0[u2i[v]] for v in sampled_nbrs]) : z
             ht = vcat(h0[u2i[u]], hn)
+            # println(f"\(A.S), \(length(sampled_nbrs) != 0), \(A([h0[u2i[v]] for v in sampled_nbrs])), \(z)")
         end
-        println("====:", cnt_1, "/", cnt, " , ",  typeof(hh), " , ", size(hh))   # Array{AbstractArray{T,1} where T,1}(128,)
-        println(typeof(ht), " , ", size(ht))
-        push!(hh, ht)   # 有问题. Mutating(变异) arrays is not supported
+        # println("====: $cnt_1/$cnt, $(typeof(hh)), $(size(hh)), $(typeof(hn)), $(size(hn)), $(typeof(z)), $(size(z))")    # Array{AbstractArray{T,1} where T,1}(128,)
+        println(f"\(typeof(ht)), \(size(ht)) \(cnt_1)/\(cnt), \(typeof(hh)), \(size(hh))")
 
+        push!(hh, ht)   # 有问题. Mutating arrays is not supported. 
+        # 最后一次 有问题. 类型不同
     end
 
     return hh
 end
 
 Flux.@functor SAGE
+
 
 # transformer
 struct Transformer{F}

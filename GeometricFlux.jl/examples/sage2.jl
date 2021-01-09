@@ -45,17 +45,19 @@ function train!(loss, θs::Vector, mini_batches::Vector, opts::Vector; start_opt
     extend training method to allow using different optimizers for different parameters
     """
 
-    ps = Flux.params(vcat(collect.(θs)...));
+    ps = Flux.params(vcat(collect.(θs)...))
+    println("ps:", length(ps))   # 8
+    # ps = Flux.params(θs)
     for (i,mini_batch) in enumerate(mini_batches)
         gs = Flux.gradient(ps) do
-            loss(mini_batch...);
+            loss(mini_batch...)
         end
 
         for (θ,opt,start_opt) in zip(θs,opts,start_opts)
-            (i > start_opt) && Flux.update!(opt, θ, gs);
+            (i > start_opt) && Flux.update!(opt, θ, gs)
         end
 
-        (i % cb_skip == 0) && cb();
+        (i % cb_skip == 0) && cb()
     end
 end
 
@@ -81,8 +83,8 @@ function read_cora(dim_reduction=false, dim_embed=8)
     ff = Matrix{Float32}(cnt[:,2:end-1])
     f = [ff[i,:] for i in 1:size(ff,1)]   # feat matrix
 
-    if dim_reduction  # 降维. 获取feats
-        U,S,V = svds(hcat(f...); nsv=dim_embed)[1]
+    if dim_reduction  # 降维,获取feats. 默认不做降维
+        U,S,V = svds(hcat(f...); nsv=dim_embed)[1]   # svd 
         UU = U .* svdssign.(sum(U,dims=1)[:])'
         f = [UU'*f_ for f_ in f]
         fbar = mean(f)
@@ -128,52 +130,11 @@ function train_1()
     # train
     cb() = @printf("%6.3f,  %6.3f,  %6.3f,  %6.3f   \n", loss(L), loss(V), accuracy(V), accuracy(U))
     # 重载 Flux.train!(loss, ps, train_data, opt, cb)
+    println("Flux.params(enc, reg):", length(Flux.params(enc, reg)))
     train!(loss, [Flux.params(enc, reg)], mini_batches, [ADAM(0.001)]; cb=cb, cb_skip=10)
 
 end
 
-
-function train_2()
-    # 基于 GeometricFlux
-    @load "../data/cora_features.jld2" features
-    @load "../data/cora_labels.jld2" labels
-    @load "../data/cora_graph.jld2" g
-
-    println(g)
-
-    num_nodes = 2708
-    num_features = 1433
-    heads  = 8
-    hidden = 8
-    target_catg = 7
-    epochs = 10
-
-    dim_h, dim_r = 16, 8
-
-    ## Preprocessing data
-    train_X = Matrix{Float32}(features) # |> gpu  # dim: num_features * num_nodes
-    train_y = Matrix{Float32}(labels)  # |> gpu  # dim: target_catg * num_nodes
-    adj_mat = Matrix{Float32}(adjacency_matrix(g))  # |> gpu
-    feats = features
-    G = adj_mat
-    # n = LightGraphs.nv(G)
-    println(size(train_X), size(train_y), size(features), size(labels))   # (1433, 2708)(7, 2708)
-
-    enc = GraphSAGE2.graph_encoder(size(feats,1), dim_r, dim_h, repeat(["SAGE_Mean"], 2); σ=relu)
-    reg = Chain(Dense(dim_r, size(labels,1)), softmax)
-    model(node_list) = reg(hcat(enc(G, node_list, u->feats[:,u])...))
-
-    loss(x, y) = Flux.logitcrossentropy(model(x), y)
-
-    ## Training
-    ps = Flux.params(model)
-    train_data = [(train_X, train_y)]
-    opt = ADAM(0.01)
-    evalcb() = @show(loss(train_X, train_y))
-
-    Flux.@epochs epochs Flux.train!(loss, ps, train_data, opt, cb=throttle(evalcb, 10))
-
-end
 
 
 train_1()
@@ -182,14 +143,14 @@ train_1()
 #=
 2020.12.17
 cd /home/zhangyong/cluster/julia_learn/GeometricFlux.jl/examples
-julia --project=/home/zhangyong/.julia/environments/v1.5/Project.toml sage2.jl   # 可以跑通
+julia --project=/home/zhangyong/.julia/environments/v1.5/Project.toml sage2.jl   # 不可以跑通
 cora dataset:
 0.058,   0.525,   0.858    0.858    # train 50%
 0.000,   0.864,   0.796,   0.783    # train 1%
 
 
 TODO: 2020.12.26
-1. 支持Flux v0.11
-2. 支持GPU
+1. 支持Flux v0.11.  push!(hh, ht)   # 有问题. Mutating(变异) arrays is not supported. 
+2. 支持GPU. 
 3. 支持跑大数据
 =#

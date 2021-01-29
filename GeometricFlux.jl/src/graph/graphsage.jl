@@ -101,7 +101,7 @@ function (c::SAGE)(G::AbstractGraph, node_list::Vector{Int}, node_features::Func
             ht = vcat(h0[u2i[u]], hn)
             # println(f"\(A.S), \(length(sampled_nbrs) != 0), \(A([h0[u2i[v]] for v in sampled_nbrs])), \(z)")
         end
-        # println("====: $cnt_1/$cnt, $(typeof(hh)), $(size(hh)), $(typeof(hn)), $(size(hn)), $(typeof(z)), $(size(z))")    # Array{AbstractArray{T,1} where T,1}(128,)
+        
         println(f"\(typeof(ht)), \(size(ht)) \(cnt_1)/\(cnt), \(typeof(hh)), \(size(hh))")
 
         push!(hh, ht)   # 有问题. Mutating arrays is not supported. 

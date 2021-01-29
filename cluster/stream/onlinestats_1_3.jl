@@ -55,11 +55,11 @@ mutable struct ClusterOp <: OnlineStat{Vector{Float32}}
     th::Float32
     batch_size::Int32
     num::Int64
-    nodes::Dict
-    clusters::Dict
+    nodes::Dict     # {"n_id0": {"n_id":"pid", "blur":0.3}}  只存代表点
+    clusters::Dict  # {"c_id0":{"c_id":"c_id0", "members": [], "c_size":5}  只存代表点
     collection_name::String   # init index
-    vectors::Array
-    ids::Array
+    vectors::Array  # 把一批的feat存到状态里. 为batch加的
+    ids::Array    # 把一批的id存到状态里
     ClusterOp() = new(100, 0.5, 1000, 0, Dict(), Dict(), creat_collection("repo_test_3", 384), [], [])  # init
     # 调用外部api.  index=milvus_api_1.IndexMilvus(dim=384, repo="repo1")
 end
@@ -72,7 +72,7 @@ function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
     feat_1 = y
 
     # init
-    o.nodes[o.num] = o.num
+    o.nodes[o.num] = o.num 
     o.clusters[o.num] = [o.num]
 
     # 调用api
@@ -84,6 +84,7 @@ function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
     # batch/window. 批处理. 是不是可以加个window op.
     if o.num % o.batch_size == 0
         # add_obj(o.collection_name, o.vectors, o.ids)   # add  慢
+        println(f"======:\(o.num), \(length(o.ids)), \(size(o.vectors))")
         insert_obj(o.collection_name, o.vectors, o.ids)   # add  慢
         rank_result = search_obj(o.collection_name, o.vectors, o.top_k)   # search rank
         dists, idxs = prcoess_results_3(rank_result, o.top_k)
@@ -92,10 +93,11 @@ function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
 
         batch = o.num ÷ o.batch_size - 1
         for i in 1:o.batch_size
-            idx_1 = findall(dists[i,:] .> o.th)
+            idx_1 = findall(dists[i,:] .> o.th)   # 返回的idx
             idx_y = idxs[i,:][idx_1]   # Tuple.(idx_1)
 
             for j in idx_y  # 遍历每个连接
+
                 union_2!(batch*o.batch_size+i, j, o.nodes, o.clusters)
             end
         end
@@ -193,33 +195,19 @@ test_4()
 2020.10, 2020.11
 JULIA_NUM_THREADS=4
 ---------------------------------
-using milvus api
-
-test_4()  2020.11.25
-th=0.5  bs=1000
-195000, id:3721
-used: 577.543s
-
-结论: 这两个增量的实现, 效果和速度 没啥区别
-调用的api的:
-10000, id:577
-used: 564.013s
-----------------------------------
-
-OnlineStats问题:  2020.10.22
-0. OnlineStats文档不够, 功能不够.
-1. 并行 b=ThreadsX.reduce(op, x1) 失败
-2. 没有可视化: graph可视化, matrix可视化
-3. 没有flink高级, 没有graph优化, 没有souce和sink接口. 
-5. 没有资源调度, 任务调度. dagger
-
+基于onlinestats_1_2.jl
 
 可以做一些事, 虽然不够完善.
  
+
 TODO:
 0. 加同镜,跨镜 多时空阶段聚类
 1. 加代表点, 代表点更新
 2. 质量 加权动态阈值
+
+要应用Window
+
+通过blur和cos 做代表点更新
 
 
 =#

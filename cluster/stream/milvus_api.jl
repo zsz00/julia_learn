@@ -3,16 +3,16 @@ using HTTP, JSON3
 using NPZ
 using Dates, BenchmarkTools
 using ProgressMeter
+using Strs
 
 
 function commen_api(component, method, body="", show=false)
-    # api_url = "http://192.168.100.221:19121/$component"   # 19530  19121
+    # api_url = "http://192.168.100.221:19530/$component"   # 19530  19121 
     api_url = "http://192.168.3.199:19121/$component"
     headers = Dict("accept"=>"application/json")  # , "Content-Type" => "application/json"
 
     response = HTTP.request(method, api_url, headers=headers, body=body)   # 必须是body, 不能是data,json
     # response = HTTP.request(method, api_url, headers=headers)
-    # a ? b : c
     status = response.status  #  == 200 ? "OK" : "requests get failed."   # status  status_code
     # println(status)
 
@@ -38,10 +38,10 @@ end
 
 
 function creat_collection(collection_name, dim)
-    println("creat_collection")
+    println("creat_collection()")
     try
         delete_collection(collection_name)
-        println("delete coll ok")
+        println("delete collection ok")
     catch
         println("delete error")
     end
@@ -76,7 +76,7 @@ function delete_collection(collection_name)
     # devices = commen_api("devices", "GET", "")   # 获取到设备信息
     delete_coll = commen_api("collections/$collection_name", "DELETE")  # 删除collection  
 
-    println(delete_coll)
+    println("delete_coll:", delete_coll)
 
 end
 
@@ -87,11 +87,9 @@ function insert_obj_batch(collection_name, vectors, ids)
 
 end
 
-
 function insert_obj(collection_name, vectors, ids)
     # println("insert_obj")
-    body_dict = 
-        Dict( # "partition_tag" => "test_collection5",
+    body_dict = Dict( # "partition_tag" => "test_collection5",
               "vectors" => vectors,
               "ids" => ids
             )
@@ -99,7 +97,7 @@ function insert_obj(collection_name, vectors, ids)
     body = JSON3.write(body_dict)
     
     insert_obj = commen_api("collections/$collection_name/vectors", "POST", body)  # insert_obj, 不是实时commit的
-    # println(insert_obj)
+    # println(f"\(ids), \(insert_obj)")
     flush_coll(collection_name)  # 频繁flush会很慢. 所以要batch的add
 
 end
@@ -119,20 +117,35 @@ function search_obj(collection_name, vectors, top_k)
                     "topk" => top_k,
                     # "partition_tags" => [string],
                     # "file_ids" => [string],
-                    "vectors" => vectors,
+                    "vectors" => vectors, 
                     "params" => Dict("nprobe" => 16))
                 )
 
     body = JSON3.write(body_dict)
-    # println(body)
     
     rank_result = commen_api("collections/$collection_name/vectors", "PUT", body)  # 创建collection
     # println(rank_result)
     return rank_result
 end
 
+function get_feat(collection_name, ids)
+    # println("search_obj")
+    ids_list = join(ids, ",")
+    rank_result = commen_api("collections/$collection_name/vectors?ids=$ids_list", "GET", "")
+    # println(rank_result)
+    feats = []
+    for vector in rank_result["vectors"]
+        id = vector["id"]
+        feat = Array(vector["vector"])
+        push!(feats, feat)
+        # println(f"-----:\(ids), \(id)")
+    end
+    feats = vcat((hcat(i...) for i in feats)...)
+    return feats
+end
 
 function prcoess_results_3(results, topk)
+    # println(results)
     size = results["num"]
     result = results["result"]
 
@@ -235,7 +248,7 @@ v0.10
 3. search
 4. remove
 
-https://github.com/milvus-io/milvus/tree/0.11.0/core/src/server/web_impl
+https://github.com/milvus-io/milvus/tree/0.10.5/core/src/server/web_impl
 
 
 test_2()   100000: add+search  13min

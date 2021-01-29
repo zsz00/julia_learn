@@ -50,7 +50,7 @@ function distance_3()
     query = X
     println("knn...")
     brutetree = BruteTree(data)  # 暴力搜索树
-    kdtree = KDTree(gallery, leafsize=4)   # 同index.add(gallery) 
+    # kdtree = KDTree(gallery, leafsize=4)   # 同index.add(gallery) 
     idxs, dists = knn(kdtree, query, k, true)  # 单线程的, 很慢.  # query查询. (70184,)
     dists = vcat((hcat(i...) for i in dists)...)  # 转换 shape
     println("idxs: $(size(idxs)), dists: $(size(dists))")

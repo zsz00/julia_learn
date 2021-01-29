@@ -1,0 +1,241 @@
+th=0.5, blur>=0.0
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_2.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:683
+有监督: 纯度, 散度, nmi, v_measure, ari:0.83881, 0.99753, 0, 0.91131, 0.37572
+avg_pre, avg_rec, fscore, fmi:0.23984, 0.99763, 0.38671, 0.48916
+macro-F1: p_1:0.98454, r_1:0.99424, fscore_1:0.98937
+micro-F1: p_2:0.72198, r_2:0.99785, fscore_2:0.83779
+purity1:0.98454, divergence1:1.12485
+
+th=0.53, blur>=0.0
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_3.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:864
+有监督: 纯度, 散度, nmi, v_measure, ari:0.92721, 0.99531, 0, 0.96005, 0.62961
+avg_pre, avg_rec, fscore, fmi:0.46614, 0.99633, 0.63513, 0.68149
+macro-F1: p_1:0.99174, r_1:0.98059, fscore_1:0.98614
+micro-F1: p_2:0.87305, r_2:0.99433, fscore_2:0.92975
+purity1:0.99174, divergence1:1.27611
+
+th=0.53, blur>=0.1
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_4.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:935
+有监督: 纯度, 散度, nmi, v_measure, ari:0.9436, 0.99411, 0, 0.9682, 0.72487
+avg_pre, avg_rec, fscore, fmi:0.57471, 0.99534, 0.72868, 0.75633
+macro-F1: p_1:0.99161, r_1:0.97633, fscore_1:0.98391
+micro-F1: p_2:0.89792, r_2:0.99280, fscore_2:0.94298
+purity1:0.99161, divergence1:1.35414
+
+th=0.5, blur>=0.2
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_5.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:2581
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98161, 0.95337, 0, 0.96729, 0.94819
+avg_pre, avg_rec, fscore, fmi:0.9308, 0.96744, 0.94877, 0.94895
+macro-F1: p_1:0.99483, r_1:0.81978, fscore_1:0.89886
+micro-F1: p_2:0.97530, r_2:0.92755, fscore_2:0.95083
+purity1:0.99483, divergence1:3.31693
+
+
+th=0.48, blur>=0.2
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_6.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:2278
+有监督: 纯度, 散度, nmi, v_measure, ari:0.9664, 0.95839, 0, 0.96238, 0.86646
+avg_pre, avg_rec, fscore, fmi:0.7829, 0.97404, 0.86807, 0.87326
+macro-F1: p_1:0.99468, r_1:0.83324, fscore_1:0.90683
+micro-F1: p_2:0.94054, r_2:0.93395, fscore_2:0.93724
+purity1:0.99468, divergence1:2.96158
+
+th=0.45, blur>=0.2
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_7.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:2047
+有监督: 纯度, 散度, nmi, v_measure, ari:0.86778, 0.95803, 0, 0.91067, 0.36159
+avg_pre, avg_rec, fscore, fmi:0.23033, 0.97846, 0.37288, 0.47473
+macro-F1: p_1:0.99300, r_1:0.84129, fscore_1:0.91087
+micro-F1: p_2:0.77865, r_2:0.93793, fscore_2:0.85090
+purity1:0.99300, divergence1:2.74430
+
+th=0.45, blur>=0.2 && -40<node_1.yaw<40 && node_1.mask<2
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_8.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:2869
+有监督: 纯度, 散度, nmi, v_measure, ari:0.96785, 0.93106, 0, 0.9491, 0.87242
+avg_pre, avg_rec, fscore, fmi:0.80773, 0.95194, 0.87392, 0.87687
+macro-F1: p_1:0.99387, r_1:0.78410, fscore_1:0.87661
+micro-F1: p_2:0.93243, r_2:0.88187, fscore_2:0.90644
+purity1:0.99387, divergence1:3.68547
+
+th=0.45, blur>=0.1 && -40<node_1.yaw<40 && node_1.mask<2
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_9.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:1389, keynotes_sum:37388
+有监督: 纯度, 散度, nmi, v_measure, ari:0.8908, 0.96644, 0, 0.92708, 0.54485
+avg_pre, avg_rec, fscore, fmi:0.38436, 0.97899, 0.552, 0.61342
+macro-F1: p_1:0.98504, r_1:0.92367, fscore_1:0.95337
+micro-F1: p_2:0.76747, r_2:0.94545, fscore_2:0.84722
+purity1:0.98504, divergence1:1.98800
+
+
+th=0.45, node_1.blur >= 0.1 && -40<node_1.yaw<40  && -20<node_1.pitch<20 && node_1.mask<2
+img_sum:64182, id_sum:1542, keynotes_sum:30212, 19.6img/id
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_10.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:1542
+有监督: 纯度, 散度, nmi, v_measure, ari:0.89659, 0.9633, 0, 0.92875, 0.55271
+avg_pre, avg_rec, fscore, fmi:0.39208, 0.9776, 0.55969, 0.61911
+macro-F1: p_1:0.98685, r_1:0.90482, fscore_1:0.94406
+micro-F1: p_2:0.77190, r_2:0.93966, fscore_2:0.84756
+purity1:0.98685, divergence1:2.15726
+
+th=0.45, node_1.blur >= 0.15 && -40<node_1.yaw<40  && -20<node_1.pitch<20 && node_1.mask<2
+img_sum:64182, id_sum:2416, keynotes_sum:15451, 6.4img/id
+used: 189.0s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_11.csv
+gt: img_sum:64182, id_sum:833    bs:100, top_k: 100
+cluster: img_sum:64182, id_sum:2416
+有监督: 纯度, 散度, nmi, v_measure, ari:0.95262, 0.94558, 0, 0.94909, 0.78791
+avg_pre, avg_rec, fscore, fmi:0.66886, 0.96666, 0.79065, 0.80409
+macro-F1: p_1:0.99242, r_1:0.82967, fscore_1:0.90377
+micro-F1: p_2:0.88741, r_2:0.90795, fscore_2:0.89756
+purity1:0.99242, divergence1:3.15366
+
+
+---------------------------------
+NN.knn, topk:100, bs:100    基本对齐了上面的
+th=0.45, node_1.blur >= 0.15 && -40<node_1.yaw<40  && -20<node_1.pitch<20 && node_1.mask<2
+img_sum:64182, id_sum:2346, keynotes_sum:15451, 6.6img/id
+used: 176.1s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_13.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:2346
+有监督: 纯度, 散度, nmi, v_measure, ari:0.91957, 0.94442, 0, 0.93183, 0.60869
+avg_pre, avg_rec, fscore, fmi:0.45027, 0.96741, 0.61452, 0.66
+macro-F1: p_1:0.99066, r_1:0.83046, fscore_1:0.90351
+micro-F1: p_2:0.81517, r_2:0.90848, fscore_2:0.85930
+purity1:0.99066, divergence1:3.09724
+
+
+
+img_sum:1106092, id_sum:59289, keynotes_sum:306435, 5.2img/id
+used: 4322.5s
+非常散
+
+
+----------
+
+th=0.55, node_1.blur>=0, knn
+img_sum:64182, id_sum:743, keynotes_sum:64100, 86.3img/id
+used: 481.4s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_16.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:743
+有监督: 纯度, 散度, nmi, v_measure, ari:0.97364, 0.99744, 0, 0.9854, 0.94182
+avg_pre, avg_rec, fscore, fmi:0.89358, 0.99707, 0.94249, 0.94391
+macro-F1: p_1:0.99025, r_1:0.99435, fscore_1:0.99230
+micro-F1: p_2:0.96231, r_2:0.99716, fscore_2:0.97943
+purity1:0.99025, divergence1:1.12965
+
+NN.knn, topk:100, bs:100   
+th=0.55, node_1.blur>=0.15, knn
+img_sum:64182, id_sum:2685, keynotes_sum:15451, 5.8img/id
+used: 390.2s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_17.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:2685
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98766, 0.94272, 0, 0.96467, 0.96434
+avg_pre, avg_rec, fscore, fmi:0.96999, 0.95953, 0.96473, 0.96474
+macro-F1: p_1:0.99552, r_1:0.82258, fscore_1:0.90082
+micro-F1: p_2:0.98593, r_2:0.90282, fscore_2:0.94255
+purity1:0.99552, divergence1:3.43337
+
+
+NN.knn, topk:100, bs:100   
+th=0.55, node_1.blur>=0.1, knn
+img_sum:64182, id_sum:1810, keynotes_sum:30212, 16.7img/id
+used: 410.2s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_18.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:1810
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98648, 0.96167, 0, 0.97392, 0.96953
+avg_pre, avg_rec, fscore, fmi:0.96873, 0.971, 0.96986, 0.96986
+macro-F1: p_1:0.99472, r_1:0.89939, fscore_1:0.94466
+micro-F1: p_2:0.98370, r_2:0.93342, fscore_2:0.95790
+purity1:0.99472, divergence1:2.38535
+
+
+th=0.55, node_1.blur>=0.1, knn, 加废片簇
+img_sum:64182, id_sum:1793, keynotes_sum:30212, 16.8img/id
+used: 415.7s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_19.csv
+gt: img_sum:64182, id_sum:833
+cluster: img_sum:64182, id_sum:1793
+有监督: 纯度, 散度, nmi, v_measure, ari:0.96823, 0.94587, 0, 0.95692, 0.92789
+avg_pre, avg_rec, fscore, fmi:0.92697, 0.9304, 0.92868, 0.92868
+macro-F1: p_1:0.99421, r_1:0.87570, fscore_1:0.93120
+micro-F1: p_2:0.96387, r_2:0.91158, fscore_2:0.93700
+purity1:0.99421, divergence1:2.63265
+
+th=0.55, node_1.blur>=0.1, knn, 加废片簇, 改了eval
+img_sum:64182, id_sum:1793, keynotes_sum:30212, 16.8img/id
+used: 415.7s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_19.csv
+gt: img_sum:62751, id_sum:832
+cluster: img_sum:62751, id_sum:1792
+有监督: 纯度, 散度, nmi, v_measure, ari:0.987, 0.96109, 0, 0.97387, 0.96972
+avg_pre, avg_rec, fscore, fmi:0.97001, 0.97008, 0.97005, 0.97005
+macro-F1: p_1:0.99473, r_1:0.89917, fscore_1:0.94454
+micro-F1: p_2:0.98457, r_2:0.93222, fscore_2:0.95768
+purity1:0.99473, divergence1:2.36538
+all_img:64182, recall:97.77%
+
+th=0.55, node_1.blur>=0.15, knn, 加废片簇, 改了eval
+img_sum:64182, id_sum:2285, keynotes_sum:15451, 6.8img/id
+used: 379.6s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_20.csv
+gt: img_sum:56503, id_sum:817
+cluster: img_sum:56503, id_sum:2284
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98778, 0.94432, 0, 0.96556, 0.96248
+avg_pre, avg_rec, fscore, fmi:0.97013, 0.95577, 0.9629, 0.96292
+macro-F1: p_1:0.99567, r_1:0.84529, fscore_1:0.91434
+micro-F1: p_2:0.98623, r_2:0.90406, fscore_2:0.94336
+purity1:0.99567, divergence1:3.00000
+all_img:64182, recall:88.04%
+
+th=0.5, node_1.blur>=0.15, knn, 加废片簇, 改了eval   2021.1.27
+img_sum:64182, id_sum:2159, keynotes_sum:15451, 7.2img/id
+used: 377.4s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_21.csv
+gt: img_sum:56535, id_sum:817
+cluster: img_sum:56535, id_sum:2158
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98748, 0.94855, 0, 0.96762, 0.96556
+avg_pre, avg_rec, fscore, fmi:0.96974, 0.96219, 0.96595, 0.96596
+macro-F1: p_1:0.99557, r_1:0.84859, fscore_1:0.91623
+micro-F1: p_2:0.98573, r_2:0.90898, fscore_2:0.94580
+purity1:0.99557, divergence1:2.84700
+all_img:64182, recall:88.09%
+
+th=0.5, node_1.blur>=0.15, knn, 加废片簇, 改了eval   2021.1.28
+img_sum:64182, id_sum:2159, keynotes_sum:15451, 7.2img/id
+used: 384.9s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_22.csv
+gt: img_sum:55859, id_sum:817
+cluster: img_sum:55859, id_sum:2147
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98746, 0.94869, 0, 0.96769, 0.96557
+avg_pre, avg_rec, fscore, fmi:0.96958, 0.96235, 0.96595, 0.96596
+macro-F1: p_1:0.99602, r_1:0.84887, fscore_1:0.91657
+micro-F1: p_2:0.98575, r_2:0.90906, fscore_2:0.94585
+purity1:0.99602, divergence1:2.83109
+all_img:63417, recall:88.08%
+
+
+
+
+
+
+
+
+

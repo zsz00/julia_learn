@@ -18,7 +18,7 @@ function stars()
         print(pl, "\t")
         lang = []
         push!(lang, pl)
-        for num in [10, 100 ,1000, 10000]
+        for num in [1, 10, 100 ,1000, 10000]
             url = "https://github.com/search?l=$(pl)&q=stars%3A%3E$(num)&s=updated&type=Repositories"
             # print(pl, " ", num)
 

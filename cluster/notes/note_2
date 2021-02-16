@@ -1,0 +1,33 @@
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_2_1.csv
+
+img_sum:1106092, id_sum:59289, keynotes_sum:306435, 5.2img/id
+used: 4322.5s
+非常散
+
+
+img_sum:1106092, id_sum:47936, keynotes_sum:304787, 6.4img/id
+2021.1.31   used: 11513.2s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_2_2.csv
+gt: img_sum:882374, id_sum:14897
+cluster: img_sum:882374, id_sum:47934
+有监督: 纯度, 散度, nmi, v_measure, ari:0.99715, 0.95867, 0, 0.97753, 0.94408
+avg_pre, avg_rec, fscore, fmi:0.97839, 0.91215, 0.94411, 0.94469
+macro-F1: p_1:0.99898, r_1:0.86710, fscore_1:0.92838
+micro-F1: p_2:0.99287, r_2:0.91018, fscore_2:0.94973
+purity1:0.99898, divergence1:3.26542
+all_img:1105826, recall:79.79%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

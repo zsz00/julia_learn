@@ -111,6 +111,13 @@ function flush_coll(collection_name)
 
 end
 
+function delete_obj(collection_name, ids)
+    body_dict = Dict("delete" => Dict("ids" => ids))
+    body = JSON3.write(body_dict)
+    delete_obj = commen_api("collections/$collection_name/vectors", "PUT", body)
+    # println(f"delete: \(ids), \(delete_obj)")
+end
+
 function search_obj(collection_name, vectors, top_k)
     # println("search_obj")
     body_dict = Dict("search" => Dict(
@@ -137,10 +144,14 @@ function get_feat(collection_name, ids)
     for vector in rank_result["vectors"]
         id = vector["id"]
         feat = Array(vector["vector"])
+        if length(feat) == 0
+            continue
+        end
         push!(feats, feat)
         # println(f"-----:\(ids), \(id)")
     end
     feats = vcat((hcat(i...) for i in feats)...)
+
     return feats
 end
 

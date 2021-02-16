@@ -1,4 +1,4 @@
-# online HAC base on Transducers.   2021.1.16
+# online cluster base on Transducers.   2021.1.30
 using NPZ, JLD2, FileIO
 using Transducers
 using Transducers: R_, start, next, complete, inner, xform, wrap, unwrap, wrapping
@@ -6,13 +6,14 @@ using Strs, JSON3, Base64
 using NearestNeighbors, Distances
 using LinearAlgebra, Statistics
 using PyCall
+using BangBang  # for `push!!`
 include("milvus_api.jl")
-
+include("keyby.jl")
 
 
 mutable struct Node <: Any
-    n_id::Int32  # node id
-    c_id::Int32  # cluster id
+    n_id::String  # node id
+    c_id::String  # cluster id
     obj_id::String  # object id
     blur::Float32 
     feature::Array 
@@ -27,7 +28,124 @@ mutable struct Node <: Any
 
 end
 
+mutable struct Cluster <: Any
+    c_id::String  # cluster id
+    c_size::Int32 # cluster size
+    c_key_size::Int32 # cluster keypoints size
+    c_members::Array  # cluster members
+    t_ctime::Int32 # cluster create Timestamp 
+    c_utime::Int32 # cluster upate Timestamp 
+end
 
+mutable struct Track <: Any
+    t_id::Int32  # tarcking id
+    t_size::Int32 # tarcking size
+    t_key_size::Int32 # tarcking keypoints size
+    t_members::Array  # tarcking members
+    t_ctime::Int32 # tarcking create Timestamp 
+    t_utime::Int32 # tarcking upate Timestamp
+end
+
+# --------------------------------------------------------------
+# 同镜 
+struct Spacetime1_Cluster <: Transducer 
+end
+
+function Transducers.start(rf::R_{Spacetime1_Cluster}, result)  
+    top_k = 100  # rank top k
+    th = 0.5   # 聚类阈值
+    batch_size = 100  
+    num = 0
+    nodes = Dict()     # 节点信息.  最好只存代表点
+    clusters = Dict("0"=>Cluster("0", 0, 0, [], 0, 0))    # 同镜中簇信息 
+    vectors = []  # 把一批的feat存到状态里. 为batch加的
+    ids = []
+    size_keynotes = 0      # 代表点数量
+
+    private_state = (top_k, th, batch_size, num, nodes, clusters, vectors, ids, size_keynotes)  # 初始化私有状态
+    result = wrap(rf, private_state, start(inner(rf), result))
+    return result
+end
+
+function Transducers.next(rf::R_{Spacetime1_Cluster}, result, input)
+    wrapping(rf, result) do private_state, iresult
+        (top_k, th, batch_size, num, nodes, clusters, vectors, ids, size_keynotes) = private_state
+
+        # num += 1
+        device_id = input[1]  # input是Pair{String,Node}
+        node = input[2]
+        println(f"device_id:\(device_id)")
+        num = node.n_id
+        # node.n_id = num
+        # node.c_id = num
+        feat_1 = node.feature   # 特征
+        track = Cluster(num, 1, 1, [num], 0, 0)
+
+        # init. 存了所有点
+        nodes[num] = node 
+        clusters[num] = track
+
+        push!(vectors, feat_1)   # 把一批的feat存到状态里. 为batch加的
+        push!(ids, num)
+        println(f"======:n_id:\(num), \(size(vectors))")
+
+        # 不加batch. 是不是可以加个window op. key by(track_id)
+        # query 
+        # query = feat_1
+        gallery = vcat((hcat(i...) for i in vectors)...)
+        query = vcat((hcat(i...) for i in [feat_1])...)
+        # search top_k 
+        dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)    # 慢, 改为faiss的
+        # println(f"===:\(num), \(size(dists)), \(size(idxs))")
+
+        idx_1 = findall(dists_1 .> th)   # 返回的idx
+        dists_y = dists_1[idx_1]  # cos 
+        idx_y = idxs_1[idx_1]   # index. 
+        node_1 = nodes[num]
+
+        # quality_1 = -40<node_1.yaw<40  && -20<node_1.pitch<20 && node_1.mask<2
+        # # 质量差的丢掉, 放到废片簇0里
+        # if quality_1 && node_1.blur < 0.1
+        #     if num_1 in keys(clusters)
+        #         node_1.c_id = 0
+        #         append!(clusters[0].c_members, pop!(clusters, num_1).c_members)
+        #     end
+        # end
+
+        # quality_2_1 = quality_1 && node_1.blur >= 0.1
+        # cos_1 = length(dists_y) > 1.0 ? dists_y[2] : 0.0
+        # 聚类
+        for j in 1: length(idx_y)  # 遍历每个连接
+            idx_j = idx_y[j]
+            id_1 = node_1.c_id
+            node_2 = nodes[idx_j]
+            cos_1 = dists_y[j]  # 相似度
+            # println(f"batch:\(batch),i:\(i),j:\(j), idx_j:\(idx_j),\(cos_1), th:\(th)")
+            id_2 = node_2.c_id
+            if id_1 != "0" && id_2 != "0"
+                union_2!(id_1, id_2, nodes, clusters)
+            end
+        end
+
+        # 到达定时器时清空
+        # if now - vectors > 60000
+        #     vectors = []
+        # end
+
+        iinput = node_1  # 就是输出. 状态
+        iresult = next(inner(rf), iresult, iinput)
+        return (top_k, th, batch_size, num, nodes, clusters, vectors, ids, size_keynotes), iresult
+    end
+end
+
+function Transducers.complete(rf::R_{Spacetime1_Cluster}, result)
+    _private_state, inner_result = unwrap(rf, result)
+    result = complete(inner(rf), inner_result)
+    return result
+end
+
+# --------------------------------------------------------------
+# 全局
 struct HAC <: Transducer
     top_k::Int32  # rank top k
     th::Float32   # 聚类阈值
@@ -39,8 +157,9 @@ HAC() = HAC(100, 0.55, 100)  # 初始化结构体
 function Transducers.start(rf::R_{HAC}, result)  
     hac = xform(rf)
     num = 0
-    nodes = Dict()     # {"n_id0": {"n_id":"pid", "blur":0.3}}  只存代表点
-    clusters = Dict(0=>[])    # {"c_id0":{"c_id":"c_id0", "members": [], "c_size":5}  只存代表点
+    nodes = Dict()     # 节点信息.  最好只存代表点
+    clusters = Dict("0"=>Cluster("0", 0, 0, [], 0, 0))    # 簇信息 
+    tracks = Dict()    # 跟踪信息
     collection_name = creat_collection("repo_test_3", 384)   # init index
     vectors = []  # 把一批的feat存到状态里. 为batch加的
     size_keynotes = 0      # 代表点数量
@@ -52,7 +171,6 @@ function Transducers.start(rf::R_{HAC}, result)
     return result
 end
 
-
 function Transducers.next(rf::R_{HAC}, result, input)
     wrapping(rf, result) do private_state, iresult
         (hac, num, nodes, clusters, collection_name, vectors, size_keynotes) = private_state
@@ -61,15 +179,21 @@ function Transducers.next(rf::R_{HAC}, result, input)
         th = hac.th
         batch_size = hac.batch_size
 
-        num += 1
-        node = Node(num, num, "", 1.0, [], 0, "", "", 0, 0, 1, 1, 1)   # init
-        node = prase_json(input, node)   # 反序列化
+        println(f"\(unreduced(values(input.state)))")    # 
+
+        (top_k, th, batch_size, num, nodes, clusters, vectors, ids, size_keynotes) = unreduced(values(input.state))
+        println(f"\(top_k), \(th), \(nodes)")
+
+        node = input   # 怎么打开
         feat_1 = node.feature   # 特征
+        num = node.n_id
+
+        cluster = Cluster(num, 1, 1, [num], 0, 0)
 
         # init. 存了所有点
         nodes[num] = node 
-        clusters[num] = [num]
-
+        clusters[num] = cluster
+ 
         push!(vectors, feat_1)   # 把一批的feat存到状态里. 为batch加的
 
         # batch/window. 批处理, 矩阵操作. 是不是可以加个window op.
@@ -107,7 +231,7 @@ function Transducers.next(rf::R_{HAC}, result, input)
                     if num_1 in keys(clusters)
                         # println(f"\(num_1), \(size(clusters[0]))")
                         node_1.c_id = 0
-                        append!(clusters[0], pop!(clusters, num_1))
+                        append!(clusters[0].c_members, pop!(clusters, num_1).c_members)
                         continue
                     end
                 end
@@ -125,7 +249,6 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 end
 
                 for j in 1: length(idx_y)  # 遍历每个连接
-                    # node_1 = nodes[batch*batch_size+i]
                     idx_j = idx_y[j]
                     id_1 = node_1.c_id
                     node_2 = nodes[idx_j]
@@ -153,44 +276,45 @@ function Transducers.next(rf::R_{HAC}, result, input)
     end
 end
 
-
 function Transducers.complete(rf::R_{HAC}, result)
     _private_state, inner_result = unwrap(rf, result)
     result = complete(inner(rf), inner_result)
     return result
 end
 
-
+# --------------------------------------------------------------
+# 辅助函数
 function union_2!(id_1, id_2, nodes, clusters)
     if id_1 == id_2  # 查
         return
     else
         # 更新 set
-        if length(clusters[id_1]) >= length(clusters[id_2])  # 更新小的cluster到大的中
+        if length(clusters[id_1].c_members) >= length(clusters[id_2].c_members)  # 更新小的cluster到大的中
             id_max, id_min = id_1, id_2
         else
             id_max, id_min = id_2, id_1
         end
 
-        for idx_ in clusters[id_min]  # 把id_2的转为id_1
+        for idx_ in clusters[id_min].c_members  # 把id_2的转为id_1
             nodes[idx_].c_id = id_max
         end
-        append!(clusters[id_max], pop!(clusters, id_min))  # 合并
+        append!(clusters[id_max].c_members, pop!(clusters, id_min).c_members)  # 合并
     end
 
 end
 
-
-function prase_json(json_data, node)
+function prase_json(json_data)
     data = JSON3.read(json_data)  # string to dict
-
+    node = Node("0", "0", "", 1.0, [], 0, "", "", 0, 0, 1, 1, 1)   # init node
+    
     node.blur = data["RawMessage"]["vseResult"]["RecFaces"][1]["Qualities"]["Blur"]
     node.obj_id = data["RawMessage"]["vseResult"]["RecFaces"][1]["Metadata"]["AdditionalInfos"]["FeatureID"]
     feature = data["RawMessage"]["vseResult"]["RecFaces"][1]["Features"]  # base64
     feature = base64decode(feature)
     feature = reinterpret(Float32, feature)
     node.feature = feature
-
+    node.n_id = node.obj_id
+    node.c_id = node.n_id
     node.img_url = data["RawMessage"]["vseResult"]["RecFaces"][1]["Img"]["Img"]["URI"]
 
     node.yaw = data["RawMessage"]["vseResult"]["RecFaces"][1]["Qualities"]["Yaw"]
@@ -236,17 +360,15 @@ end
 function rank_2(feats, top_k, n)
     # knn, top_k
     feats = vcat((hcat(i...) for i in feats)...)
-    size_1 = size(feats)[1]
-    x = feats
-    X = transpose(x)  # 矩阵转置, 也可以用 x'. 必须. 垃圾
+    X = transpose(feats)  # 矩阵转置, 也可以用 x'. 必须. 垃圾
     X = convert(Array, X)
     # println("size(x):", size(X), " ", typeof(X))
     top_k = top_k == 100 ? top_k-1 : top_k
     gallery = X
     query = X
-    brutetree = BruteTree(gallery, Euclidean())  # 暴力搜索树, 只支持Euclidean() 不支持 CosineDist(), 但是可以转换
+    brutetree = BruteTree(gallery, Euclidean())  # 暴力搜索树, 只支持Euclidean()不支持CosineDist(),但是可以转换. 没有增量add方式
     # kdtree = KDTree(gallery, leafsize=4)   # 同index.add(gallery) 
-    idxs, dists = knn(brutetree, query, top_k, true)  # 单线程的, 很慢.  # query查询.  
+    idxs, dists = knn(brutetree, query, top_k, true)  # 单线程的, 很慢.  # query top_k  
     dists = vcat((hcat(i...) for i in dists)...)  # 转换 shape
     idxs = vcat((hcat(i...) for i in idxs)...)  # 转换 shape
     # 后处理
@@ -254,6 +376,31 @@ function rank_2(feats, top_k, n)
     idxs = idxs .+ n
     return dists, idxs
 end
+
+function rank_3(gallery, query, ids, top_k)
+    # knn, top_k
+    gallery = convert(Array, transpose(gallery))  # 矩阵转置, 也可以用 x'. 必须. 垃圾
+    # println("size(gallery):", size(gallery), " ", typeof(gallery))
+    top_k = top_k >=size(gallery)[2] ? size(gallery)[2] : top_k
+    
+    query = convert(Array, transpose(query))  # 矩阵转置, 也可以用 x'. 必须. 垃圾
+    # println("size(query):", size(query), " ", typeof(query))
+
+    brutetree = BruteTree(gallery, Euclidean())  # 暴力搜索树, 只支持Euclidean()不支持CosineDist(),但是可以转换. 没有增量add方式
+    # kdtree = KDTree(gallery, leafsize=4)   # 同index.add(gallery) 
+    idxs, dists = knn(brutetree, query, top_k, true)  # 单线程的, 很慢.  # query top_k  
+    dists = vcat((hcat(i...) for i in dists)...)  # 转换 shape
+    idxs = vcat((hcat(i...) for i in idxs)...)  # 转换 shape
+    # println(f"\(size(idxs)), \(size(idxs)), \(size(ids)), \(ids)")
+    idxs = ids[idxs]
+    # idxs = vcat((hcat(i...) for i in idxs)...)  # 转换 shape
+    # println(f"\(size(idxs)), \(size(idxs)), \(size(ids)), \(ids)")
+    # 后处理
+    dists = 1 .- dists ./ 2
+    idxs = idxs
+    return dists, idxs
+end
+
 
 function knn_feat(collection_name, feats, n)
     # knn feat merge
@@ -333,26 +480,26 @@ function matix2array(b)
     return c
 end
 
-
+# --------------------------------------------------------------
+# 主函数
 function test_1(input_path, out_path)
     # cluster online   2021.1.16
     println("test_1()")
-    # 加载数据
-    t0 = Dates.now()
-    size_1 = 0
-    input_json = open(input_path)  # input_languang_5_2
+    # load data
+    input_json = open(input_path)
     t1 = Dates.now()
-    # println(f"used: \((t1 - t0).value/1000) s, \(size_1), \(size(feats)), \(size(feats_org))")
-
     # stream pipeline
-    # aa = collect(HAC(), feats)  # 获取每次的结果
-    op_1 = HAC() 
-    aa = Transducers.foldl(right, op_1, eachline(input_json))    # foldxt并行用不了
-    
-    hac, num, nodes, size_keynotes = aa
-    
+    op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
+    # op_hac = HAC()   # 全局, on all camera
+    aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1) |> collect )
+    # GroupBy((x -> x.device_id), op_st_1, push!!)  |> op_hac  do not work
+
+    # num, nodes, size_keynotes = aa
+    node_1 = aa
+    println(f"\(node_1)")
+
     # 获取结果
-    labels = [node.c_id for node in values(nodes)]
+    labels = [node[2].c_id for node in values(nodes)]
     t2 = Dates.now()
     id_sum = length(Set(labels))
     println(f"img_sum:\(length(labels)), id_sum:\(id_sum), keynotes_sum:\(size_keynotes), \%.1f(size_keynotes/id_sum)img/id")
@@ -364,8 +511,6 @@ function test_1(input_path, out_path)
         ss = f"\(node.obj_id),\(node.c_id)\n"
         write(f_out, ss)
     end
-    # @save f"nodes_1.jld2" labels
-    # npzwrite("/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_1.npy", labels)
     file_name = basename(out_path)
     eval_1(file_name)   # 评估
 end
@@ -384,8 +529,7 @@ function eval_1(file_name)
     cluster_path = os.path.join(dir_1, "out_1", $file_name)  # out_1_21.csv
     labels_pred_df = pd.read_csv(cluster_path, names=["obj_id", "person_id"])
     
-    # merged_all_out_1_1_1_21  merged_all_out_1_1_1_9
-    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_9-small_1.pkl")
+    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_21-small_1.pkl")
     gt_sorted_df = pd.read_pickle(gt_path)
 
     labels_true, labels_pred = eval_1.align_obj(gt_sorted_df, labels_pred_df)
@@ -397,50 +541,40 @@ function eval_1(file_name)
 end
 
 
-input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_4_2.json"
-out_path = "/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_2_2.csv"
+input_path = "/data2/zhangyong/data/pk/pk_13/input/aa_2.json"   # aa_1   input_languang_5_2
+out_path = "/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_30.csv"
 test_1(input_path, out_path)
+
 
 
 #=
 export JULIA_NUM_THREADS=4
-
-# online HAC base on Transducers.   2021.1.16  跑通了, 结果对齐了. 
-batch_size 越大,milvus的速度越快,cpu消耗越小.  
-
-base    milvus用的CPU 
-th=0.5  img_sum:195000, id_sum:3721
-used: 577.5s=9.6min
-
-hac    milvus用的CPU  bs=100.  julia cpu:30%
-img_sum: 195000, id_sum: 3723
-used: 592.717s=10min
-
-hac    milvus用的CPU  bs=1000   julia cpu:65%
-img_sum:195000, id_sum:3721
-used: 511.0s
-----------------------------------------
-languang_2  6.4w
-img_sum:64182, id_sum:787
-used: 172.3s
-
-img_sum:64182, id_sum:780
-img_sum:64182, id_sum:802  bs=1000
-used: 176.0s
-
 ----------------------------------------
 TODO:
 0. 加多维信息   OK
-0. 加同镜,跨镜 多时空阶段聚类
+0. 加同镜,跨镜,多时空阶段聚类, 加窗口  *****
 1. 加代表点[OK], 代表点更新  OK
-2. 质量加权动态阈值
+2. 质量加权动态阈值, 加权到knn里
 3. 加knn feat.  OK
 4. 接入kafka数据源, 超内存的数据源, 流式的dataloader. OK
 5. 加窗口
 
 加速: 
-1. fse/milvus
+1. fse/milvus gpu 
 2. 并行
+3. 多op 级联
+----------------------------------------
+
+input_data |> spacetime1_cluster(json) |> spacetime2_cluster(nodes, clsuters) |> global_hac(nodes, clsuters) |> output_data
+
+op1 = Spacetime1_Cluster    # PartitionBy(time)
+eachline(input_json) |> Map(prase_json) |> GroupBy((x -> x.device_id), op1) |> op2 |> ouput
+走通group by, 没走通输出
+
+----------------------------------------
+问题: 
+1. 没有可add的rank. 慢, 改为faiss[难]
+2. group by
 
 =#
 

@@ -1,9 +1,8 @@
-# milvus api. v0.10   2020.11.4
+# milvus api. v0.10.x   2020.11.4
 using HTTP, JSON3
-using NPZ
 using Dates, BenchmarkTools
 using ProgressMeter
-using Strs
+using Strs, NPZ
 
 
 function commen_api(component, method, body="", show=false)
@@ -12,24 +11,20 @@ function commen_api(component, method, body="", show=false)
     headers = Dict("accept"=>"application/json")  # , "Content-Type" => "application/json"
 
     response = HTTP.request(method, api_url, headers=headers, body=body)   # 必须是body, 不能是data,json
-    # response = HTTP.request(method, api_url, headers=headers)
     status = response.status  #  == 200 ? "OK" : "requests get failed."   # status  status_code
-    # println(status)
+    if show println(status) end
 
     data_text = String(response.body)   # text
     if data_text == "" 
         data_text = "{}"
     end
-    # println("data_text: ", data_text)
-
     data = JSON3.read(data_text)  # string to dict
-    # println(data)
+    if show println("data: ", data) end
     return data
 end
 
 
 function milvus_api()
-    # commen_api(component, method, body)
     # devices = commen_api("devices", "GET", "")   # 获取到设备信息
     get_colls = commen_api("collections", "GET", "")  # 获取到所有collections的信息
     println(get_colls)
@@ -43,7 +38,7 @@ function creat_collection(collection_name, dim)
         delete_collection(collection_name)
         println("delete collection ok")
     catch
-        println("delete error")
+        println("collection not exist, delete error")
     end
 
     body_dict = 
@@ -56,7 +51,7 @@ function creat_collection(collection_name, dim)
     body = JSON3.write(body_dict)
     try
         creat_coll = commen_api("collections", "POST", body)  # 创建collection
-        println(creat_coll)
+        println("creat_coll ok")
     catch 
         println("create coll error")
     end
@@ -64,7 +59,7 @@ function creat_collection(collection_name, dim)
     # get_colls = commen_api("collections", "GET", "")  # 获取到所有collections的信息
     
     get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
-    println(get_coll_info)
+    println("get_coll_info ok")
 
     return collection_name
 
@@ -88,14 +83,14 @@ function insert_obj_batch(collection_name, vectors, ids)
 end
 
 function insert_obj(collection_name, vectors, ids)
-    # println("insert_obj")
+    # println("insert_obj")  # ids只能是数字的字符串
     body_dict = Dict( # "partition_tag" => "test_collection5",
               "vectors" => vectors,
-              "ids" => ids
+              "ids" => ids   # ids只能是数字的字符串
             )
 
     body = JSON3.write(body_dict)
-    
+    # println(body)
     insert_obj = commen_api("collections/$collection_name/vectors", "POST", body)  # insert_obj, 不是实时commit的
     # println(f"\(ids), \(insert_obj)")
     flush_coll(collection_name)  # 频繁flush会很慢. 所以要batch的add
@@ -185,21 +180,50 @@ function prcoess_results_3(results, topk)
 
 end
 
+function prcoess_results_2(results, topk)
+    # println(results)
+    size = results["num"]
+    result = results["result"]
+
+    dists = zeros(Float32, (size, topk))
+    idxs = Array{String,2}(undef, size, Int64(topk))
+
+    for i in 1:size
+        for j in 1:topk
+            try
+                data = result[i][j]
+                if data["id"] == "-1"
+                    dists[i, j] = -1
+                    idxs[i, j] = data["id"]
+                else
+                    dists[i, j] = parse(Float32, data["distance"])
+                    idxs[i, j] = data["id"]
+                end
+            catch
+                dists[i, j] = -1
+                idxs[i, j] = "-1"
+            end
+        end
+    end
+
+    return dists, idxs
+
+end
 
 function test_1()
     collection_name = "test_coll_1"
     # delete_collection(collection_name)
     creat_collection(collection_name, 2)  # 384
-    delete_collection(collection_name)
+    # delete_collection(collection_name)
 
-    # vectors = [[1.0, 2.0], [2.2, 3.2], [3.1, 4.1]]
-    # ids = ["1","2","3"]  # string list
-    # # insert_obj(collection_name, vectors, ids)
+    vectors = [[1.0, 2.0], [2.2, 3.2], [3.1, 4.1]]
+    ids = ["aesa6ut","bdg5r","crdf3w"]  # string list
+    insert_obj(collection_name, vectors, ids)
 
-    # top_k = 10
-    # query_vectors = [[2.2, 3.2], [1.1, 2.2]]
-    # rank_result = search_obj(collection_name, query_vectors, top_k)
-    # # println(rank_result)
+    top_k = 10
+    query_vectors = [[2.2, 3.2], [1.1, 2.2]]
+    rank_result = search_obj(collection_name, query_vectors, top_k)
+    println(rank_result)
     # dists, idxs = prcoess_results_3(rank_result, 5)
     # println(dists)
     # println(idxs)

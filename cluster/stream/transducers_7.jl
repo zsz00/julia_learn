@@ -17,7 +17,7 @@ mutable struct Node <: Any
     obj_id::String  # object id
     blur::Float32 
     feature::Array 
-    timestamp::Int64   # timestamp
+    timestamp::Float64   # timestamp
     device_id::String  # device id
     img_url::String    # image url
     yaw::Float32 
@@ -53,7 +53,7 @@ end
 
 function Transducers.start(rf::R_{Spacetime1_Cluster}, result)  
     top_k = 100  # rank top k
-    th = 0.5   # 聚类阈值
+    th = 0.45   # 聚类阈值
     batch_size = 100  
     num = 0
     nodes = Dict()     # 节点信息.  最好只存代表点
@@ -83,6 +83,21 @@ function Transducers.next(rf::R_{Spacetime1_Cluster}, result, input)
         nodes[num] = node 
         clusters[num] = track
 
+        # # 到达定时器时清空
+        if length(ids)>0 && node.timestamp - nodes[ids[end]].timestamp > 60000
+            vectors = []
+        end
+
+        quality_1 = -40<node.yaw<40  && -20<node.pitch<20 && node.mask<2
+        # 质量差的丢掉, 放到废片簇0里
+        if quality_1 && node.blur < 0.1  # 0.15
+            if num in keys(clusters)  # 注意:此处不能用c_id_1 
+                append!(clusters["0"].c_members, pop!(clusters, num).c_members)  # 按道理只一个member
+                node.c_id = "0"   # 只一个member的c_id. 完全的应该是改全部的members
+                # continue
+            end
+        end
+
         push!(vectors, feat_1)   # 把一批的feat存到状态里. 为batch加的
         push!(ids, num)
         # println(f"======:device_id:\(device_id[1:8]), n_id:\(num[1:8]), \(size(vectors))")
@@ -92,7 +107,7 @@ function Transducers.next(rf::R_{Spacetime1_Cluster}, result, input)
         gallery = vcat((hcat(i...) for i in vectors)...)
         query = vcat((hcat(i...) for i in [feat_1])...)
         # search top_k 
-        dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)    # 慢, 改为faiss的
+        dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)    # 用的NN,慢, 改为faiss的
         # println(f"===:\(num), \(size(dists)), \(size(idxs))")
 
         idx_1 = findall(dists_1 .> th)   # 返回的idx
@@ -102,23 +117,19 @@ function Transducers.next(rf::R_{Spacetime1_Cluster}, result, input)
 
         # 聚类
         for j in 1: length(idx_y)  # 遍历每个连接
-            idx_j = idx_y[j]
             id_1 = node_1.c_id
+
+            idx_j = idx_y[j]
             node_2 = nodes[idx_j]
+            id_2 = node_2.c_id
             cos_1 = dists_y[j]  # 相似度
             # println(f"batch:\(batch),i:\(i),j:\(j), idx_j:\(idx_j),\(cos_1), th:\(th)")
-            id_2 = node_2.c_id
-            if id_1 != "0" && id_2 != "0"
+            if id_1 != "0" && id_2 != "0" && id_1 in keys(clusters) && id_2 in keys(clusters)
                 union_2!(id_1, id_2, nodes, clusters)
             end
         end
 
-        # 到达定时器时清空
-        # if now - vectors > 60000
-        #     vectors = []
-        # end
-
-        output = node_1  # 就是输出. 状态
+        output = node_1  # , nodes, device_id  # 就是输出. 状态
         iresult = next(inner(rf), iresult, output)
         private_state = (top_k, th, batch_size, num, nodes, clusters, vectors, ids, size_keynotes)
         return private_state, iresult
@@ -139,7 +150,7 @@ struct HAC <: Transducer
     batch_size::Int32   
 end
 
-HAC() = HAC(100, 0.5, 100)  # 初始化结构体
+HAC() = HAC(100, 0.55, 100)  # 初始化结构体
 
 function Transducers.start(rf::R_{HAC}, result)  
     hac = xform(rf)
@@ -169,15 +180,15 @@ function Transducers.next(rf::R_{HAC}, result, input)
         num += 1
 
         # input是PrivateState对象, 可获得 前op的state和result
-        # top_k_st1, th_st1, batch_size_st1, num_st1, nodes_st1, clusters_st1, vectors_st1, ids_st1, size_keynotes_st1 = input.state  # state
-        node_st1 = input  # input.result  
+        top_k_st1, th_st1, batch_size_st1, num_st1, nodes_st1, clusters_st1, vectors_st1, ids_st1, size_keynotes_st1 = input.state  # state
+        node_st1 = input.result  # input.result    input
         # println(f"node:\(node_st1)")
         node = node_st1
         feat_1 = node.feature   # 特征
         n_id = node.n_id
         c_id = node.c_id
-        # cluster = clusters_st1[c_id]
-        cluster = Cluster(c_id, 1, 1, [n_id], 0, 0)
+        cluster = clusters_st1[c_id]
+        # cluster = Cluster(c_id, 1, 1, [n_id], 0, 0)
 
         # init. 存了所有点
         nodes[n_id] = node 
@@ -257,10 +268,10 @@ function Transducers.next(rf::R_{HAC}, result, input)
                         println(f"id_1: batch:\(batch),i:\(i),j:\(j), id_1:\(id_1), \(node_1.blur),\(node_1.n_id)")
                         continue
                     end
-                    # if !(id_2 in keys(clusters))
-                    #     println(f"j:\(j), id_2:\(id_2), \(node_2.n_id), \(node_1.blur), \(idx_j), \(size(ids)), \(length(clusters))")
-                    #     continue
-                    # end
+                    if !(id_2 in keys(clusters))
+                        println(f"id_2: batch:\(batch),i:\(i),j:\(j), id_2:\(id_2), \(node_2.blur), \(size(ids)), \(length(clusters))")
+                        continue
+                    end
 
                     if id_1 != "0" && id_2 != "0"
                         union_2!(id_1, id_2, nodes, clusters)
@@ -304,7 +315,11 @@ function union_2!(id_1, id_2, nodes, clusters)
         end
 
         for idx_ in clusters[id_min].c_members  # 把id_2的转为id_1
-            nodes[idx_].c_id = id_max
+            if idx_ in keys(nodes)
+                nodes[idx_].c_id = id_max
+            else
+                println(f"union_2: \(idx_) no in nodes")
+            end
         end
         append!(clusters[id_max].c_members, pop!(clusters, id_min).c_members)  # 合并
     end
@@ -345,7 +360,8 @@ function prase_json(json_data)
     node.glass = Int32(att_dict["glass"]["value"])
     node.hat = Int32(att_dict["hat"]["value"])
     
-    node.timestamp = data["RawMessage"]["vseResult"]["RecFaces"][1]["Metadata"]["Timestamp"]
+    node.timestamp = data["RawMessage"]["vseResult"]["RecFaces"][1]["Metadata"]["Timestamp"]/(10^13)  # 13位,毫秒.
+
     node.device_id = data["RawMessage"]["vseResult"]["RecFaces"][1]["Metadata"]["AdditionalInfos"]["UniqueSensorId"]
 
     # println(node)
@@ -494,17 +510,20 @@ function test_1(input_path, out_path)
     # stream pipeline
     op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
     op_hac = HAC()   # 全局, on all camera
-    aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |>  op_hac |> collect )
-    # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac  do not work
+    aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1)|> op_hac |> collect )
+    # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac 
 
     hac, num, nodes, size_keynotes = aa
+    # node, nodes, device_id = aa.result
+    # println(f"\(length(keys(nodes))), \(device_id[1:8])")
 
     # 获取结果
     labels = [node.c_id for node in values(nodes)]
     t2 = Dates.now()
     id_sum = length(Set(labels))
     println(f"img_sum:\(length(labels)), id_sum:\(id_sum), keynotes_sum:\(size_keynotes), \%.1f(size_keynotes/id_sum)img/id")
-    println(f"used: \%.1f((t2 - t1).value/1000)s")
+    used_time = (t2 - t1).value/1000
+    println(f"used: \%.1f(used_time)s=\%.1f(used_time/60)min")
     
     # 结果保存和评估
     f_out = open(out_path, "w")
@@ -543,10 +562,9 @@ function eval_1(file_name)
 end
 
 
-input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # aa_1   input_languang_5_2
-out_path = "/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_31.csv"
+input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # aa_2   input_languang_5_2
+out_path = "/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_tmp_3.csv"
 test_1(input_path, out_path)
-
 
 
 #=
@@ -555,7 +573,7 @@ julia stream/transducers_6.jl
 ----------------------------------------
 TODO:
 0. 加多维信息   OK
-0. 加同镜,跨镜,多时空阶段聚类, 加窗口  *****
+0. 加同镜,跨镜,多时空阶段聚类 [keyby]  *****
 1. 加代表点[OK], 代表点更新  OK
 2. 质量加权动态阈值, 加权到knn里
 3. 加knn feat.  OK
@@ -580,7 +598,11 @@ eachline(input_json) |> Map(prase_json) |> GroupBy((x -> x.device_id), op1) |> o
 
 milvus add with ids ,  OK
 有问题(c_id 找不到), 结果不能回归. 解决了此bug. ok
-还没 和同镜 联调, 各环节好了,没有联调
+还没 和同镜 联调, 联调OK
+
+联调: 跑通. 很慢. 
+milvus慢
+
 
 
 =#

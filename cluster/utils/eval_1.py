@@ -267,7 +267,7 @@ def eval_3_2(cluster, labels_true, cluster_1, is_show=True):
     return metric, info
 
 
-def eval(labels_true, labels_pred, is_show=True):
+def eval(labels_true, labels_pred, p_waste_id=0, is_show=True):
     """
     :param labels_true: gt list
     :param labels_pred:  pred list
@@ -277,7 +277,7 @@ def eval(labels_true, labels_pred, is_show=True):
     if len(labels_true) == 0:
         info = f"cluster: img_sum:{len(labels_pred)}, id_sum:{len(set(labels_pred))}"
         return [], info
-    p_waste_id = 0
+    # p_waste_id = "0"
     sorted_df = pd.DataFrame({"person_id": labels_pred, "gt_person_id": labels_true})
     sorted_df_1 = sorted_df[sorted_df['person_id'] != p_waste_id]
     labels_pred = sorted_df_1['person_id'].values

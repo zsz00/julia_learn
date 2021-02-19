@@ -34,7 +34,7 @@ struct HAC <: Transducer
     batch_size::Int32   
 end
 
-HAC() = HAC(100, 0.55, 100)  # 初始化结构体
+HAC() = HAC(100, 0.5, 100)  # 初始化结构体
 
 function Transducers.start(rf::R_{HAC}, result)  
     hac = xform(rf)
@@ -103,7 +103,7 @@ function Transducers.next(rf::R_{HAC}, result, input)
 
                 quality_1 = -40<node_1.yaw<40  && -20<node_1.pitch<20 && node_1.mask<2
                 # 质量差的丢掉, 放到废片簇0里
-                if quality_1 && node_1.blur < 0.15
+                if quality_1 && node_1.blur < 0.1
                     if num_1 in keys(clusters)
                         # println(f"\(num_1), \(size(clusters[0]))")
                         node_1.c_id = 0
@@ -365,7 +365,6 @@ function test_1(input_path, out_path)
         write(f_out, ss)
     end
     # @save f"nodes_1.jld2" labels
-    # npzwrite("/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_1.npy", labels)
     file_name = basename(out_path)
     eval_1(file_name)   # 评估
 end
@@ -385,20 +384,21 @@ function eval_1(file_name)
     labels_pred_df = pd.read_csv(cluster_path, names=["obj_id", "person_id"])
     
     # merged_all_out_1_1_1_21  merged_all_out_1_1_1_9
-    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_9-small_1.pkl")
+    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_21-small_1.pkl")
     gt_sorted_df = pd.read_pickle(gt_path)
 
     labels_true, labels_pred = eval_1.align_obj(gt_sorted_df, labels_pred_df)
 
     print(cluster_path)
-    metric, info = eval_1.eval(labels_true, labels_pred, is_show=False)
+    p_waste_id = 0
+    metric, info = eval_1.eval(labels_true, labels_pred, p_waste_id, is_show=False)
     print(info)
     """
 end
 
 
-input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_4_2.json"
-out_path = "/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_2_2.csv"
+input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"
+out_path = "/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_31.csv"
 test_1(input_path, out_path)
 
 
@@ -407,26 +407,6 @@ export JULIA_NUM_THREADS=4
 
 # online HAC base on Transducers.   2021.1.16  跑通了, 结果对齐了. 
 batch_size 越大,milvus的速度越快,cpu消耗越小.  
-
-base    milvus用的CPU 
-th=0.5  img_sum:195000, id_sum:3721
-used: 577.5s=9.6min
-
-hac    milvus用的CPU  bs=100.  julia cpu:30%
-img_sum: 195000, id_sum: 3723
-used: 592.717s=10min
-
-hac    milvus用的CPU  bs=1000   julia cpu:65%
-img_sum:195000, id_sum:3721
-used: 511.0s
-----------------------------------------
-languang_2  6.4w
-img_sum:64182, id_sum:787
-used: 172.3s
-
-img_sum:64182, id_sum:780
-img_sum:64182, id_sum:802  bs=1000
-used: 176.0s
 
 ----------------------------------------
 TODO:

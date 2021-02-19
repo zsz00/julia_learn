@@ -1,6 +1,6 @@
 using Transducers
 using Transducers: R_, start, next, complete, inner, xform, wrap, unwrap, wrapping, DefaultInitOf
-using Transducers: _realbottomrf, unwrap_all
+using Transducers: _reducingfunction, _realbottomrf, unwrap_all, PrivateState, DefaultInit
 using BangBang.Experimental: modify!!, mergewith!!
 using Strs
 
@@ -27,7 +27,7 @@ end
 function Transducers.next(rf::R_{KeyBy}, result, input)
     wrapping(rf, result) do gstate, iresult
         key = xform(rf).key(input)
-        println(f"key:\(key), input:\(input)")
+        # println(f"key:\(key), input:\(input)")
         gstate, somegr = modify!!(gstate, key) do value
             # 如果dict里没有就新建,有就更新
             if value === nothing
@@ -39,10 +39,12 @@ function Transducers.next(rf::R_{KeyBy}, result, input)
         end
 
         gr = something(somegr)
-        out_1 = KeyByViewDict(gstate, xform(rf))
-        out = out_1.state[key]  # get(out_1, key)
-        println(f"out:\(out), key:\(key), input:\(input)")
+        # out_1 = KeyByViewDict(gstate, xform(rf))
+        # out = out_1.state[key]  # get(out_1, key)
+        out = gstate[key]
+        # println(f"out:\(out), key:\(key), input:\(input)")
         iresult = next(inner(rf), iresult, out)
+        # println(iresult isa Reduced)
         if gr isa Reduced && !(iresult isa Reduced)
             return gstate, reduced(complete(inner(rf), iresult))
         else
@@ -53,16 +55,16 @@ end
 
 Transducers.complete(rf::R_{KeyBy}, result) = Transducers.complete(inner(rf), unwrap(rf, result)[2])
 
-function Transducers.combine(rf::R_{KeyBy}, a, b)
-    gstate_a, ira = unwrap(rf, a)
-    gstate_b, irb = unwrap(rf, b)
-    gstate_c = mergewith!!(gstate_a, gstate_b) do ua, ub
-        combine(xform(rf).rf, ua, ub)
-    end
-    irc = combine(inner(rf), ira, irb)
-    irc = next(inner(rf), irc, KeyByViewDict(gstate_c, xform(rf)))
-    return wrap(rf, gstate_c, irc)
-end
+# function Transducers.combine(rf::R_{KeyBy}, a, b)
+#     gstate_a, ira = unwrap(rf, a)
+#     gstate_b, irb = unwrap(rf, b)
+#     gstate_c = mergewith!!(gstate_a, gstate_b) do ua, ub
+#         combine(xform(rf).rf, ua, ub)
+#     end
+#     irc = combine(inner(rf), ira, irb)
+#     irc = next(inner(rf), irc, KeyByViewDict(gstate_c, xform(rf)))
+#     return wrap(rf, gstate_c, irc)
+# end
 
 
 struct KeyByViewDict{K,V,S<:DefaultInitOf,D<:AbstractDict{K}} <: AbstractDict{K,V}

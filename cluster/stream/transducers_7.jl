@@ -589,7 +589,7 @@ input_data |> spacetime1_cluster(json) |> spacetime2_cluster(nodes, clsuters) |>
 
 op1 = Spacetime1_Cluster    # PartitionBy(time)
 eachline(input_json) |> Map(prase_json) |> GroupBy((x -> x.device_id), op1) |> op2 |> ouput
-走通group by, 没走通输出
+走通group by, 走通输出
 
 ----------------------------------------
 问题: 

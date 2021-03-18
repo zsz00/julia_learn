@@ -67,7 +67,7 @@ if args["task"] == "copy"
           l = loss(model, x, t, x_mask, t_mask)
           l
       end
-        i%8 == 0 && @show loss(model, x, t, x_mask, t_mask)
+      i%8 == 0 && @show loss(model, x, t, x_mask, t_mask)
       update!(opt, ps, grad)
     end
   end
@@ -77,28 +77,30 @@ if args["task"] == "copy"
 elseif args["task"] == "wmt14" || args["task"] == "iwslt2016"
   const N = 6
   const Smooth = 0.4
-  const Batch = 8
+  const Batch = 4
   const lr = 1e-6
   const MaxLen = 100
 
   const task = args["task"]
-
-  if task == "wmt14"
-    wmt14 = WMT.GoogleWMT()
-
-    datas = dataset(Train, wmt14)
-    vocab = get_vocab(wmt14)
-  else
-    iwslt2016 = IWSLT.IWSLT2016(:en, :de)
-
-    datas = dataset(Train, iwslt2016)
-    vocab = get_vocab(iwslt2016)
-  end
-
   startsym = "<s>"
   endsym = "</s>"
   unksym = "</unk>"
+
+  function gen_data(task)
+    if task == "wmt14"
+      wmt14 = WMT.GoogleWMT()
+      datas = dataset(Train, wmt14)
+      vocab = get_vocab(wmt14)
+    else
+      iwslt2016 = IWSLT.IWSLT2016(:en, :de)
+      datas = dataset(Train, iwslt2016)
+      vocab = get_vocab(iwslt2016)
+    end
   labels = [unksym, startsym, endsym, collect(keys(vocab))...]
+  return datas, labels
+  end
+  
+  datas, labels = gen_data(task)
 
   function preprocess(batch)
       x = mkline.(batch[1])
@@ -112,6 +114,7 @@ elseif args["task"] == "wmt14" || args["task"] == "iwslt2016"
   function train!()
     global Batch
     println("start training")
+    
     i = 1
     model = (embed=embed, encoder=encoder, decoder=decoder)
     while (batch = get_batch(datas, Batch)) != []

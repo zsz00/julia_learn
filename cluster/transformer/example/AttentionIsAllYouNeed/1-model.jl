@@ -14,10 +14,9 @@ using Transformers.Basic
 using Random
 Random.seed!(0)
 using CUDA
-CUDA.device!(2)
+CUDA.device!(4)
 
 include("./0-data.jl")
-
 
 
 const vocab = Vocabulary(labels, unksym)

@@ -77,7 +77,7 @@ if args["task"] == "copy"
 elseif args["task"] == "wmt14" || args["task"] == "iwslt2016"
   const N = 6
   const Smooth = 0.4
-  const Batch = 4
+  const Batch = 8
   const lr = 1e-6
   const MaxLen = 100
 

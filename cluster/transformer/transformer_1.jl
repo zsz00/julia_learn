@@ -1,6 +1,7 @@
 using Transformers
 using Transformers.Basic
 using Transformers.Pretrain
+using CUDA
 include("/home/zhangyong/cluster/julia_learn/cluster/transformer/example/AttentionIsAllYouNeed/1-model.jl")
 
 
@@ -30,7 +31,8 @@ function test_1()
 end
 
 function test_2()
-    # example/AttentionIsAllYouNeed
+    # example/AttentionIsAllYouNeed/1-model.jl
+    println(length(CUDA.devices()))
     train!()
 
 end
@@ -47,6 +49,8 @@ test_2()
 
 2021.3.5   test_2()  ok
 Batch = 4
+export NVIDIA_VISIBLE_DEVICES='2 3'
+$ julia-1.5 transformer_1.jl -g wmt14
 CPU:1.8G,100%, GPU:11G,15%
 只能julia@1.5, cuda@1.3
 

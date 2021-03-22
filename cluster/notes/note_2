@@ -1,8 +1,14 @@
-/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_2_1.csv
+蓝光1: big  
+中规模: 110w img, 15119 id. 一个租户多个 店/设备组
+input: /data2/zhangyong/data/pk/pk_13/input/input_languang_4_2.json   2730
+input: /data2/zhangyong/data/pk/pk_13/input/input_languang_4_3.json   2830
 
+
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_2_1.csv
 img_sum:1106092, id_sum:59289, keynotes_sum:306435, 5.2img/id
 used: 4322.5s
 非常散
+很慢, milvus慢, 用不了gpu
 
 
 img_sum:1106092, id_sum:47936, keynotes_sum:304787, 6.4img/id
@@ -16,8 +22,6 @@ macro-F1: p_1:0.99898, r_1:0.86710, fscore_1:0.92838
 micro-F1: p_2:0.99287, r_2:0.91018, fscore_2:0.94973
 purity1:0.99898, divergence1:3.26542
 all_img:1105826, recall:79.79%
-
-
 
 
 

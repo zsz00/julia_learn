@@ -492,7 +492,7 @@ function test_1(input_path, out_path)
     input_json = open(input_path)
     t1 = Dates.now()
     # stream pipeline
-    op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
+    # op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
     op_hac = HAC()   # 全局, on all camera
     aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |>  op_hac |> collect )
     # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac  do not work
@@ -578,9 +578,9 @@ eachline(input_json) |> Map(prase_json) |> GroupBy((x -> x.device_id), op1) |> o
 1. 没有可add的rank. 慢, 改为faiss[难]
 2. group by, keyby
 
-milvus add with ids ,  OK
+milvus add with ids,  OK
 有问题(c_id 找不到), 结果不能回归. 解决了此bug. ok
-还没 和同镜 联调, 各环节好了,没有联调
+还没和同镜 联调, 各环节好了,没有联调
 
 
 =#

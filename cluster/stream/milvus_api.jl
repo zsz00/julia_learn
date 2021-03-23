@@ -6,12 +6,12 @@ using Strs, NPZ
 
 
 function commen_api(component, method, body="", show=false)
-    # api_url = "http://192.168.100.221:19530/$component"   # 19530  19121 
+    # api_url = "tcp://192.168.3.199:19530/$component"   # 19530  19121 
     api_url = "http://192.168.3.199:19121/$component"
     headers = Dict("accept"=>"application/json")  # , "Content-Type" => "application/json"
 
-    response = HTTP.request(method, api_url, headers=headers, body=body)   # 必须是body, 不能是data,json
-    status = response.status  #  == 200 ? "OK" : "requests get failed."   # status  status_code
+    response = HTTP.request(method, api_url, headers=headers, body=body)
+    status = response.status  #  == 200 ? "OK" : "requests get failed."
     if show println(status) end
 
     data_text = String(response.body)   # text
@@ -47,7 +47,6 @@ function creat_collection(collection_name, dim)
             #   "index_file_size" => 10000,
               "metric_type" => "IP")
 
-    # body = JSON.json(body_dict)   # body_dict
     body = JSON3.write(body_dict)
     try
         creat_coll = commen_api("collections", "POST", body)  # 创建collection
@@ -210,14 +209,14 @@ function prcoess_results_2(results, topk)
 
 end
 
+
 function test_1()
     collection_name = "test_coll_1"
-    # delete_collection(collection_name)
-    creat_collection(collection_name, 2)  # 384
-    # delete_collection(collection_name)
+    creat_collection(collection_name, 2)
 
     vectors = [[1.0, 2.0], [2.2, 3.2], [3.1, 4.1]]
-    ids = ["aesa6ut","bdg5r","crdf3w"]  # string list
+    # ids = ["aesa6ut","bdg5r","crdf3w"]  # string list
+    ids = ["1", "2", "3"]
     insert_obj(collection_name, vectors, ids)
 
     top_k = 10
@@ -229,27 +228,25 @@ function test_1()
     # println(idxs)
 end
 
-
 function test_2()
     println("test_2()")
     t0 = Dates.now()
     if Sys.iswindows()
         feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
     else
-        # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
         feats = npzread("/data/zhangyong/data/longhu_1/sorted_2/feats.npy")
     end
 
-    feats = convert(Matrix, feats[1:1000, 1:end])
+    feats = convert(Matrix, feats[1:10000, 1:end])
     size_1 = size(feats)[1]
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, "s, ", size_1)
     # println(size(feats))
-    collection_name = "test_coll_2"
+    collection_name = "test2"
     creat_collection(collection_name, 384)  # 384
     # get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
     # println(get_coll_info)
-    top_k = 100
+    top_k = 1000
     @showprogress for i in 1:size_1
         vectors = [feats[i,1:end]]
         qurey_vectors = [feats[i,1:end]]
@@ -272,7 +269,7 @@ end
 
 
 # test_1()
-test_2()
+# test_2()
 
 
 #=
@@ -287,5 +284,7 @@ https://github.com/milvus-io/milvus/tree/0.10.5/core/src/server/web_impl
 
 
 test_2()   100000: add+search  13min
+
+为什么用不了GPU?
 
 =#

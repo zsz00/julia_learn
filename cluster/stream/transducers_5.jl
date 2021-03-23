@@ -345,9 +345,9 @@ function test_1(input_path, out_path)
     # println(f"used: \((t1 - t0).value/1000) s, \(size_1), \(size(feats)), \(size(feats_org))")
 
     # stream pipeline
-    # aa = collect(HAC(), feats)  # 获取每次的结果
-    op_1 = HAC() 
-    aa = Transducers.foldl(right, op_1, eachline(input_json))    # foldxt并行用不了
+    op_hac = HAC() 
+    # aa = Transducers.foldxt(right, op_hac, eachline(input_json))    # foldxt 并行用不了  foldl
+    aa = Transducers.foldxt(right, eachline(input_json) |> op_hac |> collect)
     
     hac, num, nodes, size_keynotes = aa
     

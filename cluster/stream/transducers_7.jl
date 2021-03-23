@@ -511,11 +511,9 @@ function test_1(input_path, out_path)
     op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
     op_hac = HAC()   # 全局, on all camera
     aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1)|> op_hac |> collect )
-    # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac 
+    # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac    foldl foldxt
 
     hac, num, nodes, size_keynotes = aa
-    # node, nodes, device_id = aa.result
-    # println(f"\(length(keys(nodes))), \(device_id[1:8])")
 
     # 获取结果
     labels = [node.c_id for node in values(nodes)]
@@ -538,7 +536,8 @@ end
 
 function eval_1(file_name)
     pushfirst!(PyVector(pyimport("sys")."path"), "")
-
+    pushfirst!(PyVector(pyimport("sys")."path"), "..")
+    
     py"""
     import os
     import numpy as np
@@ -563,13 +562,13 @@ end
 
 
 input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # aa_2   input_languang_5_2
-out_path = "/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_tmp_3.csv"
+out_path = "/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_tmp_4.csv"
 test_1(input_path, out_path)
 
 
 #=
 export JULIA_NUM_THREADS=4
-julia stream/transducers_6.jl
+julia stream/transducers_7.jl
 ----------------------------------------
 TODO:
 0. 加多维信息   OK
@@ -600,10 +599,11 @@ milvus add with ids ,  OK
 有问题(c_id 找不到), 结果不能回归. 解决了此bug. ok
 还没 和同镜 联调, 联调OK
 
-联调: 跑通. 很慢. 
+联调: 跑通. 很慢.  
 milvus慢
 
-
+used: 2138.8s=35.6min   foldl
+used: 2113.4s=35.2min   foldxt  
 
 =#
 

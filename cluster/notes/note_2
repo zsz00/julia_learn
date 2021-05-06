@@ -1,0 +1,52 @@
+蓝光1: big  
+中规模: 110w img, 15119 id. 一个租户多个 店/设备组
+input: /data2/zhangyong/data/pk/pk_13/input/input_languang_4_2.json   2730
+input: /data2/zhangyong/data/pk/pk_13/input/input_languang_4_3.json   2830
+
+
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_2_1.csv
+img_sum:1106092, id_sum:59289, keynotes_sum:306435, 5.2img/id
+used: 4322.5s
+非常散
+很慢, milvus慢, 用不了gpu
+
+
+img_sum:1106092, id_sum:47936, keynotes_sum:304787, 6.4img/id
+2021.1.31   used: 11513.2s
+/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_2_2.csv
+gt: img_sum:882374, id_sum:14897
+cluster: img_sum:882374, id_sum:47934
+有监督: 纯度, 散度, nmi, v_measure, ari:0.99715, 0.95867, 0, 0.97753, 0.94408
+avg_pre, avg_rec, fscore, fmi:0.97839, 0.91215, 0.94411, 0.94469
+macro-F1: p_1:0.99898, r_1:0.86710, fscore_1:0.92838
+micro-F1: p_2:0.99287, r_2:0.91018, fscore_2:0.94973
+purity1:0.99898, divergence1:3.26542
+all_img:1105826, recall:79.79%
+
+
+6.4w
+Transducers.foldxt()  nthreads:1
+18.683546 seconds (45.73 M allocations: 6.369 GiB, 6.27% gc time, 4.77% compilation time)
+Transducers.foldxt()  nthreads:4     没有加速
+18.610774 seconds (45.73 M allocations: 6.370 GiB, 6.46% gc time, 4.82% compilation time)
+
+Folds.collect((prase_json(line) for line in eachline(input_json)), NondeterministicEx()) 
+nthreads:4   加速了, cpu:400%
+15.770137 seconds (57.82 M allocations: 8.216 GiB, 31.24% gc time, 1.47% compilation time)
+nthreads:40   加速了, cpu:1000%, 但总时间长了
+22.034996 seconds (58.31 M allocations: 7.086 GiB, 50.70% gc time, 1.14% compilation time)
+
+344w
+Folds.collect()  nthreads:40    20min    mem:42G
+1217.823153 seconds (2.60 G allocations: 352.374 GiB, 46.45% gc time, 0.02% compilation time)
+
+Transducers.foldxt()  nthreads:1   17min
+1046.733671 seconds (2.38 G allocations: 341.719 GiB, 4.77% gc time, 0.09% compilation time)
+
+结论: 
+1. eachline, prase_json(line)  不需要并行, 速度就够
+2. Folds.collect()   可以并行, 有提速
+3. Transducers.foldxt() 可跑通,但不能并行
+
+
+

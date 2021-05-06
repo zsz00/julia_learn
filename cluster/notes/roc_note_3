@@ -1,0 +1,27 @@
+
+light:
+python plot3_new.py ../../test_1/feat/top_10_1/20190607234027_ckpt_task0_iter_170000_iccv19-challenge.lfr.bin \
+../../test_1/feat/top_10_1/20190609094509_test.bin       \
+../../test_1/feat/top_10_1/20190610192227_y44se-78-256.bin  \
+../../test_1/feat/top_10_1/20190611102927_elface-combine35_feature_512   \
+../../test_1/feat/top_10_1/20190612184401_245.bin   \
+../../test_1/feat/top_10_1/20190613030404_mobilenetv3-5.bin   \
+../../test_1/feat/top_10_1/20190613102605_l5_dw_conv6_fc512_image47   \
+../../test_1/feat/top_10_1/20190613154707_y2c.bin    \
+../../test_1/feat/top_10_1/20190614153925_898.bin
+
+large:
+python plot3_new.py ../../test_1/feat/top_10_2/20190508090818_iccv19-Features-emdata.bin \
+../../test_1/feat/top_10_2/20190509121809_r100fc-combined-retina-glint.bin \
+../../test_1/feat/top_10_2/20190525095754_r124.bin  \
+../../test_1/feat/top_10_2/20190527151621_test_559fnc.bin   \
+../../test_1/feat/top_10_2/20190530094438_Es_combined.bin   \
+../../test_1/feat/top_10_2/20190603194115_image_test_feat_84  \
+../../test_1/feat/top_10_2/20190609134248_AT383_SVAM.bin  \
+../../test_1/feat/top_10_2/20190612004015_jihao.bin   \
+../../test_1/feat/top_10_2/20190613123446_retina-se-bn-24.bin
+
+
+export CUDA_VISIBLE_DEVICES=0,1
+
+

@@ -52,8 +52,8 @@ function stars()
 end
 
 lang_dict = stars()
-@save "all.jld2" lang_dict
-@load "all.jld2" lang_dict
+@save "crawler/all.jld2" lang_dict
+@load "crawler/all.jld2" lang_dict
 data = DataFrame(lang_dict)
 
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))

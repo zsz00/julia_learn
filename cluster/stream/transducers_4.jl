@@ -32,7 +32,7 @@ struct HAC <: Transducer
     batch_size::Int32   
 end
 
-HAC() = HAC(100, 0.45, 100)  # 初始化结构体
+HAC() = HAC(100, 0.45, 1000)  # 初始化结构体
 
 function Transducers.start(rf::R_{HAC}, result)  
     hac = xform(rf)
@@ -80,6 +80,9 @@ function Transducers.next(rf::R_{HAC}, result, input)
             # search top_k 
             rank_result = search_obj(collection_name, vectors, top_k)   # search rank
             dists, idxs = prcoess_results_3(rank_result, top_k)
+
+            # dists, idxs = search_obj_batch(collection_name, vectors, top_k)
+
             dists_1, idxs_1 = rank_2(vectors, top_k, num-batch_size)  # 在本批查询
             dists = size(dists)[1] == 0 ? dists_1 : hcat(dists, dists_1) 
             idxs = size(idxs)[1] == 0 ? idxs_1 : hcat(idxs, idxs_1)
@@ -109,7 +112,8 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 end
             end
             if length(keynodes_ids) >0
-                insert_obj(collection_name, keynodes_feats , keynodes_ids)   # add  慢
+                # insert_obj(collection_name, keynodes_feats , keynodes_ids)   # add  慢
+                insert_obj_batch(collection_name, keynodes_feats, keynodes_ids)
             end
             vectors = []
         end
@@ -284,7 +288,7 @@ function test_1()
     # feats = [feats_org[i,1:end] for i in 1:size(feats_org)[1]]
     # size_1 = size(feats)[1]
     size_1 = 0
-    input_json = open("/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json")
+    input_json = open("/mnt/zy_data/data/languang/input_languang_5_2.json")
 
     t1 = Dates.now()
     # println(f"used: \((t1 - t0).value/1000) s, \(size_1), \(size(feats)), \(size(feats_org))")
@@ -304,7 +308,7 @@ function test_1()
     println(f"img_sum:\(length(labels)), id_sum:\(id_sum), keynotes_sum:\(size_keynotes), \%.1f(size_keynotes/id_sum)img/id")
     println(f"used: \%.1f((t2 - t1).value/1000)s")
     
-    f_out = open("/data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_12.csv", "w")
+    f_out = open("/mnt/zy_data/data/languang/out_1_12.csv", "w")
     for node in values(nodes)
         ss = f"\(node.obj_id),\(node.c_id)\n"
         write(f_out, ss)
@@ -347,12 +351,12 @@ used: 176.0s
 ----------------------------------------
 TODO:
 0. 加多维信息   OK
-0. 加同镜,跨镜 多时空阶段聚类
+0. 加同镜,跨镜 多时空阶段聚类. 没有
 1. 加代表点[OK], 代表点更新
-2. 质量加权动态阈值
-3. 加knn feat.  
+2. 质量加权动态阈值. 没有
+3. 加knn feat.  没有
 4. 接入kafka数据源, 超内存的数据源, 流式的dataloader. OK
-5. 加窗口
+5. 加窗口.  没有
 
 加速: 
 1. fse/milvus

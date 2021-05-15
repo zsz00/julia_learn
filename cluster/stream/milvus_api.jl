@@ -97,12 +97,13 @@ function insert_obj_batch(collection_name, vectors, ids)
     start = 0
     @sync for i in 1:batch
         @async begin
+        start = (i-1)*bs
         if i == batch
             bs = length(vectors) - (batch-1)*bs
         end
-        # println(f"\(i), \(bs), \(start+1): \(start+bs), \(length(vectors))")
+        println(f"\(i), \(bs), \(start+1): \(start+bs), \(length(vectors))")
         insert_obj(collection_name, vectors[start+1:start+bs], ids[start+1:start+bs])
-        start += bs
+        # start += bs
         end
     end
 end
@@ -147,12 +148,14 @@ function search_obj_batch(collection_name, vectors, top_k)
     start = 0
     dists, idxs = nothing, nothing
     # println(f"\(bs), \(batch)")
-    for i in 1:batch    # @sync 
-        begin   # 乱序的  @async 
+    @sync for i in 1:batch    # 
+        @async begin   # 乱序的   
+        start = (i-1)*bs
         if i == batch
-            bs = length(vectors) - (batch-1)*bs
+            bs = length(vectors) - (batch-1)*bs     
         end
-        # println(f"\(i), \(bs), \(start+1): \(start+bs)")
+        
+        println(f"\(i), \(bs), \(start+1): \(start+bs)")
         rank_result = search_obj(collection_name, vectors[start+1:start+bs], top_k)
         dist, idx = prcoess_results_3(rank_result, top_k)  # 解析rank结果
         # println(f"\(size(dist)), \(size(idx))")
@@ -165,8 +168,9 @@ function search_obj_batch(collection_name, vectors, top_k)
         end
         # println(f"\(i), \(size(dists)), \(size(idxs))")
         # push!(results, rank_result)
-        start += bs
+        # start += bs
         end
+        
     end
     return dists, idxs
 end
@@ -326,7 +330,7 @@ end
 
 
 # test_1()
-test_2()
+# test_2()
 
 
 #=
@@ -338,7 +342,6 @@ v0.10
 4. remove
 
 https://github.com/milvus-io/milvus/tree/0.10.5/core/src/server/web_impl
-
 
 速度:  
 test_2()   100000, add+search  

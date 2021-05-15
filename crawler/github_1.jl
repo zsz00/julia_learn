@@ -1,10 +1,10 @@
 using HTTP
 using Gumbo  # 解析网页元素
-# using Cascadia
-# using AbstractTrees
 using DataFrames
 import Dates
 using JLD2
+using PrettyTables
+using DataStructures
 
 
 # TODO 用github api做. 
@@ -13,12 +13,11 @@ function stars()
     # langs = ["matlab", "r", "lua", "javascript", "swift", "php", "c", "cpp", "java", "python", "julia", "rust", "typescript", "go"]
     langs = ["julia", "matlab", "r", "swift", "python", "rust", "typescript", "go"]
     # langs = ["julia", "matlab"]
-    # sort!(langs)
-    all = []
+    lang_dict = OrderedDict()
+    lang_dict["stars"] = [1, 10, 100 ,1000, 10000]
     for pl in langs
         print(pl, "\t")
-        lang = []
-        push!(lang, pl)
+        lang_dict[pl] = []
         for num in [1, 10, 100 ,1000, 10000]
             url = "https://github.com/search?l=$(pl)&q=stars%3A%3E$(num)&s=updated&type=Repositories"
             # print(pl, " ", num)
@@ -27,11 +26,8 @@ function stars()
             body = String(res.body)
             html = Gumbo.parsehtml(body)
 
-            qdat = Base.eachmatch(r".* repository results", body);  # html.root    # 正则匹配
-            # application-main 
-            # println(qdat)
-            data = collect(qdat)
-            # println(data)
+            qdata = Base.eachmatch(r".* repository results", body);  # html.root    # 正则匹配
+            data = collect(qdata)
             if length(data) == 0
                 star = 1
             else
@@ -46,27 +42,22 @@ function stars()
                     star = 0
                 end
             end
-            push!(lang, star)
+            push!(lang_dict[pl], star)
             print(" ", star)
         end
-        push!(all, lang)
         print("\n")
         sleep(10)
     end
-    return all
+    return lang_dict
 end
 
-all = stars()
-@save "all.jld2" all
-# @load "all.jld2" all
-data = DataFrame(all)
+lang_dict = stars()
+@save "all.jld2" lang_dict
+@load "all.jld2" lang_dict
+data = DataFrame(lang_dict)
 
-star = DataFrame(data[2:end, :])
-name = Symbol.(data[1:1, :])
-name = convert(Matrix, name)
-name = reshape(name, (8,))
-# names!(star, name)  # 要求shape匹配. 4×8 DataFrame,8-element Array{Symbol,1} 
-rename!(star, name)
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
-println(star)
+# println(data)
+
+pretty_table(data, tf=tf_markdown)
 

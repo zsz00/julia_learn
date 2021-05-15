@@ -57,10 +57,14 @@ function Transducers.next(rf::R_{HAC}, result, input)
         if num % batch_size == 0
             # add_obj(collection_name, vectors, ids)   # add  慢
             println(f"======:\(num), \(length(ids)), \(size(vectors))")
-            insert_obj(collection_name, vectors, ids)   # add  慢
-            rank_result = search_obj(collection_name, vectors, top_k)   # search rank
-            dists, idxs = prcoess_results_3(rank_result, top_k)
             
+            # insert_obj(collection_name, vectors, ids)   # add  慢
+            # rank_result = search_obj(collection_name, vectors, top_k)   # search rank
+            # dists, idxs = prcoess_results_3(rank_result, top_k)
+            
+            insert_obj_batch(collection_name, vectors, ids)
+            dists, idxs = search_obj_batch(collection_name, vectors, top_k)
+
             batch = num ÷ batch_size - 1
             for i in 1:batch_size
                 idx_1 = findall(dists[i,:] .> th)   # 返回的idx
@@ -115,7 +119,7 @@ function test_1()
     println("test_1()")
     # 加载数据
     t0 = Dates.now()
-    feats = npzread("/data/zhangyong/data/longhu_1/sorted_2/feats.npy")
+    feats = npzread("/mnt/zy_data/data/longhu_1/feats.npy")
     feats_org = feats[1:195000, 1:end]
     feats = [feats_org[i,1:end] for i in 1:size(feats_org)[1]]
     size_1 = size(feats)[1]
@@ -148,6 +152,7 @@ test_1()
 #=
 # online HAC base on Transducers.   2021.1.16  跑通了, 结果对齐了. 
 batch_size 越大,milvus的速度越快,cpu消耗越小.  
+最基本的层次聚类, 没有加其他的. 
 
 base    milvus用的CPU 
 th=0.5  img_sum:195000, id_sum:3721
@@ -160,15 +165,11 @@ used: 592.717s=10min
 hac    milvus用的CPU  bs=1000   julia cpu:65%
 img_sum:195000, id_sum:3721
 used: 511.0s
+img_sum:195000, id_sum:3721
+used: 326.3s
 
 
-TODO:
-0. 加多维信息
-0. 加同镜,跨镜 多时空阶段聚类
-1. 加代表点, 代表点更新
-2. 质量 加权动态阈值
-3. 加knn feat
-4. 接入kafka数据源, 超内存的数据源, 流式的dataloader. 
-5. 加窗口
+
+
 =#
 

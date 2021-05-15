@@ -1,5 +1,6 @@
 
-data stream / onlinestats
+data stream 
+base onlinestats, transducers
 2020.11.4 
 
 online cluster
@@ -20,6 +21,14 @@ onlinestats_1 + milvus_api
 1. fse/milvus gpu 
 2. 并行
 3. 多op 级联
+
+主要的:
+transducers_3.jl
+transducers_4.jl
+transducers_7.jl
+
+
+
 
 
 

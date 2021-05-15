@@ -2,6 +2,9 @@
 小规模: 6.4w img, 833id. 一个租户多个 店/设备组
 input: /data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json  
 
+
+transducers_4.jl
+
 th=0.5, blur>=0.0
 /data2/zhangyong/data/pk/pk_13/output_1/out_1/out_1_2.csv
 gt: img_sum:64182, id_sum:833
@@ -490,5 +493,6 @@ purity1:0.97320, divergence1:1.21264
 all_img:63943, recall:91.86%
 
 
-
-
+bs=1000, 
+img_sum:64182, id_sum:2090, keynotes_sum:15438, 7.4img/id
+used: 135.7s

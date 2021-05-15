@@ -21,8 +21,12 @@ a = Repo.query(Raw("""select * from task;"""))   # query execute
 b = Repo.query(Raw("""select obj_info.obj_id,obj_info.blur,task_object.reason from face as obj_info, task_object 
 where obj_info.obj_id=task_object.obj_id and obj_info.dataset_name='af_nj_344w_2730' and task_object.obj_type=5 
 and task_object.person_id='' and task_object.task_id='b500627e-58c4-4ead-aa72-53f7d404bf48' limit 1000000;"""))
-bb = DataFrame(b)
+
+bb = DataFrame(b)  # 把结果数据(Vector{<:NamedTuple}) 格式转换为 df. 
 # println(bb)
+Pretty.set(colsize = 10)  # 显示设置
+c = Pretty.table(b)    # 把结果数据(Vector{<:NamedTuple})格式化为显示数据(string)
+println(c)
 
 @df bb histogram(:blur)
 

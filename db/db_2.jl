@@ -34,5 +34,19 @@ println(c)
 #=
 2021.5.15  work good
 
+可以多数据库连接,操作:
+https://github.com/wookay/Octo.jl/issues/27  
+sqc = Repo.connect(adapter=Octo.Adapters.SQLite, dbfile = ":memory:", multiple=true)
+myc = Repo.connect(adapter=Octo.Adapters.MySQL, hostname="sx1", port=3306, username="root", password=pass, db="templatedb", multiple=true)
+Repo.insert!(Price, (name = "Jessica", price = 70000.50); db=myc)
+pgc = Repo.connect(adapter=Octo.Adapters.PostgreSQL, host="0.0.0.0", port=5432, user="template", password=pass, dbname="templatedb", multiple=true)
+Repo.insert!(Price, (name = "Jessica", price = 70000.50); db=pgc)
+Repo.execute("update prices set create_dt = '$(now())'  where id> 10"; db=pgc)
+Repo.query("select * from prices where id >1"; db=sqc)
+Repo.disconnect(db=pgc)
+
+能多数据库联合查询吗? 
+应该可以
+
 =#
 

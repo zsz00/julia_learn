@@ -23,7 +23,20 @@ micro-F1: p_2:0.99287, r_2:0.91018, fscore_2:0.94973
 purity1:0.99898, divergence1:3.26542
 all_img:1105826, recall:79.79%
 
+2021.5.19
+img_sum:1106092, id_sum:39105, keynotes_sum:425611, 10.9img/id
+used: 9202.3s=153.4min  太慢
+size_gt:1106092, size_pred:1106092
+gt: img_sum:1065606, id_sum:15078
+cluster: img_sum:1065606, id_sum:39104 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.96981, 0.96984, 0, 0.96983, 0.6195
+avg_pre, avg_rec, pairwise-F1, fmi:0.44363, 0.94374, 0.60355, 0.64705
+macro-F1: p_1:0.99612, r_1:0.91231, fscore_1:0.95237
+micro-F1: p_2:0.92921, r_2:0.93714, fscore_2:0.93316
+purity:0.92921, divergence:2.71057, drop:0.0366
 
+------------------------------------------
+测速: 
 6.4w
 Transducers.foldxt()  nthreads:1
 18.683546 seconds (45.73 M allocations: 6.369 GiB, 6.27% gc time, 4.77% compilation time)
@@ -42,6 +55,8 @@ Folds.collect()  nthreads:40    20min    mem:42G
 
 Transducers.foldxt()  nthreads:1   17min
 1046.733671 seconds (2.38 G allocations: 341.719 GiB, 4.77% gc time, 0.09% compilation time)
+
+-----------------------------------------
 
 结论: 
 1. eachline, prase_json(line)  不需要并行, 速度就够

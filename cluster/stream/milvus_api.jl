@@ -101,7 +101,7 @@ function insert_obj_batch(collection_name, vectors, ids)
         if i == batch
             bs = length(vectors) - (batch-1)*bs
         end
-        println(f"\(i), \(bs), \(start+1): \(start+bs), \(length(vectors))")
+        # println(f"\(i), \(bs), \(start+1): \(start+bs), \(length(vectors))")
         insert_obj(collection_name, vectors[start+1:start+bs], ids[start+1:start+bs])
         # start += bs
         end
@@ -155,7 +155,7 @@ function search_obj_batch(collection_name, vectors, top_k)
             bs = length(vectors) - (batch-1)*bs     
         end
         
-        println(f"\(i), \(bs), \(start+1): \(start+bs)")
+        # println(f"\(i), \(bs), \(start+1): \(start+bs)")
         rank_result = search_obj(collection_name, vectors[start+1:start+bs], top_k)
         dist, idx = prcoess_results_3(rank_result, top_k)  # 解析rank结果
         # println(f"\(size(dist)), \(size(idx))")
@@ -281,6 +281,7 @@ end
 
 function test_2()
     println("test_2()")
+    println("nthreads:", Threads.nthreads())
     t0 = Dates.now()
     if Sys.iswindows()
         feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
@@ -299,7 +300,7 @@ function test_2()
     # get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
     # println(get_coll_info)
     top_k = 100
-    bs = 1000
+    bs = 8000
     batch = ceil(Int, size_1 / bs)
     start = 0
     @showprogress for i in 1:batch
@@ -315,10 +316,10 @@ function test_2()
         dists, idxs = search_obj_batch(collection_name, query_vectors, top_k)
 
         # insert_obj(collection_name, vectors, ids)
-        # rank_result = search_obj(collection_name, qurey_vectors, top_k)  # rank
+        # rank_result = search_obj(collection_name, query_vectors, top_k)  # rank
         # dists, idxs = prcoess_results_3(rank_result, top_k)  # 解析rank结果
 
-        if i == 1
+        if i == 8
             # println(rank_result)
             println(dists[1:10, 1:5])
             # println(idxs)
@@ -330,10 +331,12 @@ end
 
 
 # test_1()
-# test_2()
+test_2()
 
 
 #=
+export JULIA_NUM_THREADS=4
+
 v0.10
 有两种方式:1.julia写RESTful API调用, 2.调用python的
 1. 创建, 删除 coll
@@ -352,19 +355,34 @@ test_2()   100000, add+search
 2021.4.29
 195299,  add+search  
 base: faiss  10s
-used: 312.649s=5.2min
+used: 312.649s=5.2min  bs=1000
 used: 207.413s=3.4min  bs=1000 sync
-结论: 就是网络调用慢, 需要加并行IO. 有点问题
+结论: 就是网络调用慢, 需要加并行IO. 没快很多. 
+没快很多: cpu使用最高100%, 达不到400%, 为什么? 
 
-Float32[0.999912 0.795125 0.789856 0.712664 0.702646; 1.000022 0.795125 0.766819 0.72026 0.71444; 
-1.000052 0.789856 0.766819 0.698204 0.681835; 0.999986 0.640843 0.623225 0.285696 0.25978; 
-0.999976 0.957674 0.640843 0.256707 0.247197; 1.000005 0.957674 0.623225 0.260109 0.236705; 
-0.999917 0.783301 0.771581 0.731377 0.721018; 0.99999 0.791371 0.771581 0.729454 0.728289; 
-0.999958 0.791371 0.783301 0.707616 0.700753; 1.000012 0.800895 0.727842 0.697425 0.681835]
+i == 8: println(dists[1:10, 1:5])
+base
+Float32[0.999974 0.69019 0.523474 0.32853 0.327218; 1.000048 0.915944 0.9115 0.90126 0.899447; 
+0.999971 0.878873 0.868127 0.84146 0.840429; 1.000031 0.90126 0.878873 0.868277 0.865186; 
+1.000021 0.76566 0.729458 0.301022 0.290205; 1.000025 0.804665 0.744354 0.741019 0.739102; 
+1.000004 0.976473 0.9222 0.920585 0.817702; 1.000065 0.976473 0.919213 0.909691 0.818513; 
+0.999983 0.921947 0.920585 0.909691 0.813638; 0.999991 0.797902 0.708142 0.707738 0.707163]
+used: 307.614s
 
-Float32[1.0 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0 1.0; 
-1.0 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0 1.0; 
-1.0 1.0 1.0 1.0 1.0; 1.0 1.0 1.0 1.0 1.0]
+nthreads:1   sync
+Float32[1.0 0.69019 0.523482 0.32853 0.327218; 1.0 0.915945 0.911485 0.901234 0.899401; 
+1.0 0.878875 0.868117 0.841466 0.840453; 1.0 0.901234 0.878875 0.868288 0.865183; 
+1.0 0.76566 0.729458 0.301022 0.290205; 1.0 0.80465 0.744354 0.741011 0.739084; 
+1.0 0.976439 0.922176 0.920591 0.817727; 1.0 0.976439 0.919163 0.90967 0.818513; 
+1.0 0.921935 0.920591 0.90967 0.813638; 1.0 0.797913 0.708142 0.707742 0.707155]
+used: 219.148s
 
+nthreads:4   sync
+Float32[1.0 0.69019 0.523482 0.32853 0.327218; 1.0 0.915945 0.911485 0.901234 0.899401; 
+1.0 0.878875 0.868117 0.841466 0.840453; 1.0 0.901234 0.878875 0.868288 0.865183; 
+1.0 0.76566 0.729458 0.301022 0.290205; 1.0 0.80465 0.744354 0.741011 0.739084; 
+1.0 0.976439 0.922176 0.920591 0.817727; 1.0 0.976439 0.919163 0.90967 0.818513; 
+1.0 0.921935 0.920591 0.90967 0.813638; 1.0 0.797913 0.708142 0.707742 0.707155]
+used: 222.05s
 
 =#

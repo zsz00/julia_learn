@@ -4,6 +4,8 @@ using Dates, BenchmarkTools
 using ProgressMeter
 using Strs, NPZ
 import Base.Threads.@spawn
+using SimilaritySearch
+using Strs
 
 
 function commen_api(component, method, body="", show=false)
@@ -257,6 +259,64 @@ function prcoess_results_2(results, topk)
 end
 
 
+function matix2Vectors(b)
+    c = []
+    for i in 1:size(b)[1]
+        c_1 = Array{Float32, 1}(b[i,:])
+        push!(c, c_1)
+    end
+    return c
+end
+
+function test_ss()
+    # 基于 SimilaritySearch.jl, 但是结果不准确, 还要查出 n*m,再取topk.
+    feats = npzread("/mnt/zy_data/data/longhu_1/feats.npy")
+    # feats = convert(Matrix, feats[1:end, 1:end])
+    feats = matix2Vectors(feats)
+
+    feats = [[0.1 0.2 0.7], [0.1 0.2 0.7], [0.1 0.2 0.7],]
+    size_1 = size(feats)
+    println(size(feats), typeof(feats))
+
+    t0 = Dates.now()
+    # gallary = feats
+    query = feats  # [1:10]
+    gallary = query
+    topk = 3
+    index = ExhaustiveSearch(CosineDistance(), gallary, KnnResult(topk))  # gallary是Vectors,不支持增量add
+    # index = Kvp(NormalizedCosineDistance(), gallary);
+    out = [search(index, q, KnnResult(topk)) for q in query]
+    # println(length(out), out)
+    dists, idxs = prcoess_ss(out, topk)  # 解析
+    
+    println(dists)
+    println(idxs)
+    
+    t1 = Dates.now()
+    println("used: ", (t1 - t0).value/1000, "s, ", size_1)
+
+    return out
+end
+
+
+function prcoess_ss(results, topk)
+    # println(length(results))
+    size = length(results)
+    dists = zeros(Float32, (size, topk))
+    idxs = zeros(Int32, (size, topk))
+    for (i, p) in enumerate(results)
+        for (j, pp) in enumerate(p)
+            # println(f"\(i), \(j), \(pp.id), \(pp.dist)")
+            dists[i, j] = pp.dist
+            idxs[i, j] = pp.id
+        end
+    end
+    dists = reverse(dists, dims=2)
+    idxs = reverse(idxs, dims=2)
+    return dists, idxs
+end
+
+
 function test_1()
     collection_name = "test_coll_1"
     creat_collection(collection_name, 2)
@@ -331,7 +391,8 @@ end
 
 
 # test_1()
-test_2()
+# test_2()
+test_ss()
 
 
 #=

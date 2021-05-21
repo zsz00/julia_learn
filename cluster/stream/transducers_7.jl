@@ -9,6 +9,8 @@ using PyCall
 using ThreadsX
 using Folds, FoldsThreads
 using BangBang  # for `push!!`
+using SimilaritySearch
+using Strs
 include("milvus_api.jl")
 include("keyby.jl")
 # include("faiss_api.jl")
@@ -153,7 +155,7 @@ struct HAC <: Transducer
     batch_size::Int32   
 end
 
-HAC() = HAC(100, 0.5, 100)  # 初始化结构体
+HAC() = HAC(100, 0.5, 1000)  # 初始化结构体
 
 function Transducers.start(rf::R_{HAC}, result)  
     hac = xform(rf)
@@ -210,19 +212,21 @@ function Transducers.next(rf::R_{HAC}, result, input)
 
             # query knn
             # query 
-            gallery = vcat((hcat(i...) for i in vectors)...)
+            gallery = vectors  # vcat((hcat(i...) for i in vectors)...)  # Vectors -> Matrix
             query = gallery
             # ids = vcat((hcat(i...) for i in ids)...)
             feats_1 = knn_feat(collection_name, gallery, query, num-batch_size)  # knn
-            feats_2 = matix2array(feats_1)   # knn feats
+            feats_2 = matix2Vectors(feats_1)   # knn feats
             # feats_2 = vectors  # 不用knn
             # search top_k 
-            dists_1, idxs_1 = rank_2(feats_1, top_k, num-batch_size)    # 在本批查询, NN
+            # dists_1, idxs_1 = rank_2(feats_1, top_k, num-batch_size)    # 在本批查询, NN
             # dists_1, idxs_1 = rank_1(feats_1, top_k, num-batch_size)    # 在本批查询, faiss
             # dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)
-
-            rank_result = search_obj(collection_name, feats_2, top_k)   # search rank in milvus/fse 
+            dists_1, idxs_1 = rank_4(feats_2, feats_2, top_k, num-batch_size)  # 在本批查询
+            # println(feats_2)
+            rank_result = search_obj(collection_name, feats_2, top_k)  # search rank in milvus/fse 
             dists_2, idxs_2 = prcoess_results_3(rank_result, top_k)
+            # dists_2, idxs_2 = search_obj_batch(collection_name, feats_2, top_k)
             
             dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2) 
             idxs = size(idxs_2)[1] == 0 ? idxs_1 : hcat(idxs_1, idxs_2)
@@ -375,7 +379,7 @@ function prase_json(json_data)
 end
 
 function rank_1(feats, top_k, n)
-    # base faiss
+    # base faiss_python
     query = np.array(feats)
     gallery = query
     feat_dim = query.shape[1]
@@ -386,7 +390,7 @@ function rank_1(feats, top_k, n)
 end
 
 function rank_2(feats, top_k, n)
-    # base NN.jl, top_k
+    # base NearestNeighbors.jl, top_k
     # feats = vcat((hcat(i...) for i in feats)...)
     X = transpose(feats)  # 矩阵转置, 也可以用 x'. 必须. 垃圾
     X = convert(Array, X)
@@ -408,7 +412,7 @@ function rank_2(feats, top_k, n)
 end
 
 function rank_3(gallery, query, ids, top_k)
-    # knn, top_k. 基于NN的. 内存式,小批量适用
+    # knn, top_k. 基于NN的. 内存式,小批量适用. 支持id
     gallery = convert(Array, transpose(gallery))  # 矩阵转置, 也可以用 x'. 必须. 垃圾
     # println("size(gallery):", size(gallery), " ", typeof(gallery))
     top_k = top_k >=size(gallery)[2] ? size(gallery)[2] : top_k
@@ -431,27 +435,65 @@ function rank_3(gallery, query, ids, top_k)
     return dists, idxs
 end
 
+function rank_4(gallery, query, top_k, n)
+    # base SimilaritySearch.jl
+    # feats = matix2Vectors(feats)
+    println(size(query), typeof(query))
+
+    top_k_1 = size(gallery)[1]
+
+    t0 = Dates.now()
+    index = ExhaustiveSearch(CosineDistance(), gallery)   # gallary是Vectors,不支持增量add
+    out = [search(index, q, KnnResult(top_k_1)) for q in query]
+    # println(length(out), out)
+    dists, idxs = prcoess_ss(out, top_k_1)  # 解析
+
+    dists = dists[:,1:top_k]
+    idxs = idxs[:,1:top_k]
+    println(size(dists), typeof(dists))
+
+    # 后处理
+    idxs = idxs .+ n
+    return dists, idxs
+end
+
+function prcoess_ss(results, topk)
+    # println(length(results))
+    size = length(results)
+    dists = zeros(Float32, (size, topk))
+    idxs = zeros(Int32, (size, topk))
+    for (i, p) in enumerate(results)
+        for (j, pp) in enumerate(p)
+            # println(f"\(i), \(j), \(pp.id), \(pp.dist)")
+            dists[i, j] = pp.dist
+            idxs[i, j] = pp.id
+        end
+    end
+    dists = reverse(dists, dims=2)
+    idxs = reverse(idxs, dims=2)
+    return dists, idxs
+end
 
 function knn_feat(collection_name, gallery, query, n)
     # knn feat merge
     # knn_feats = mean(top_5 && cos>0.5)(feats)
     top_k = 5
     knn_th = 0.5
-    # vectors = query   # 100*384
-    # println(f"---vectors[1]:\(vectors[1])")
 
     # dists_1, idxs_1 = rank_1(query, top_k, n)  # 在本批查询   faiss
-    dists_1, idxs_1 = rank_2(query, top_k, n)  # 在本批查询
+    # dists_1, idxs_1 = rank_2(query, top_k, n)  # 在本批查询
     # dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)  # 在本批查询
-    query_1 = matix2array(query)
+    dists_1, idxs_1 = rank_4(query, query, top_k, n)  # 在本批查询
+
+    query_1 = query  # matix2Vectors(query)
     rank_result = search_obj(collection_name, query_1, 5)   # search top5 in milvus/fse 
     dists_2, idxs_2 = prcoess_results_3(rank_result, 5)  
     
     dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2)  # 合并  100*10
     idxs = size(idxs_2)[1] == 0 ? idxs_1 : hcat(idxs_1, idxs_2)
 
-    feats_1 = query  # vcat((hcat(i...) for i in vectors)...)   # [[1,2,4],[2,4,5]]-> [1 2 4; 2 4 5]
-    feats_2 = zeros(size(feats_1))
+    feats_1 = vcat((hcat(i...) for i in query)...)   # Vectors -> Matrix
+    feats_2 = zeros(Float32, size(feats_1))
     size_1 = size(dists)
     for i in 1:size_1[1]
         dist = dists[i, :]
@@ -480,7 +522,6 @@ function knn_feat(collection_name, gallery, query, n)
             feat_2 = []
         end
         # println(size(feat_1), ",", size(feat_2), ",", size(tmp_feats), ",", size(mean(tmp_feats, dims=1)))
-        
         feats_2[i, 1:end] = normalize(mean(tmp_feats, dims=1))
 
     end
@@ -565,7 +606,7 @@ function max_k(data, k)
     return data, idxs
 end
 
-function matix2array(b)
+function matix2Vectors(b)
     c = []
     for i in 1:size(b)[1]
         c_1 = Array{Float32, 1}(b[i,:])
@@ -588,7 +629,6 @@ function test_1(input_path, out_path)
     op_hac = HAC()   # 全局, on all camera
     
     aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> op_hac|> collect)
-    # eachline(input_json) |> Map(prase_json) |> tcollect
     # aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1)|> op_hac |> collect )
     # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac    foldl foldxt
     # Folds.reduce((right, eachline(input_json) |> Map(prase_json) |> collect), NondeterministicEx()) 
@@ -610,11 +650,11 @@ function test_1(input_path, out_path)
         write(f_out, ss)
     end
     file_name = basename(out_path)
-    eval(file_name)   # 评估
+    eval_1(file_name)   # 评估
 end
 
 
-function eval(file_name)
+function eval_1(file_name)
     # pushfirst!(PyVector(pyimport("sys")."path"), "")
     # pushfirst!(PyVector(pyimport("sys")."path"), "../..")
 
@@ -631,7 +671,7 @@ function eval(file_name)
     cluster_path = os.path.join(dir_1, "out_1", $file_name)  # out_1_21.csv
     labels_pred_df = pd.read_csv(cluster_path, names=["obj_id", "person_id"])
 
-    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_9-small_1.pkl")  # 21  9
+    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_21-small_1.pkl")  # 21  9
     gt_sorted_df = pd.read_pickle(gt_path)
 
     labels_true, labels_pred, _ = eval_cluster.align_gt(gt_sorted_df, labels_pred_df)
@@ -641,20 +681,16 @@ function eval(file_name)
     metric["drop"] = (len(labels_pred_df) - len(labels_true)) / len(labels_pred_df)
     print(f'drop:{metric["drop"]:.4f}')
 
-    # print(cluster_path)
-    # p_waste_id = "0"
-    # metric, info = eval_1.eval(labels_true, labels_pred, p_waste_id, is_show=False)
-    # print(info)
     """
 end
 
 
 function main()
     # input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # input_languang_5_2
-    input_path = "/mnt/zy_data/data/languang/input_languang_4_2.json"   # input_new.json
+    input_path = "/mnt/zy_data/data/languang/input_languang_5_2.json"   # input_new.json
     out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_4.csv"
-    # test_1(input_path, out_path)
-    eval(basename(out_path))   # 评估
+    test_1(input_path, out_path)
+    # eval_1(basename(out_path))   # 评估
 end
 
 

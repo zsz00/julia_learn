@@ -474,6 +474,27 @@ macro-F1: p_1:0.99378, r_1:0.89801, fscore_1:0.94347
 micro-F1: p_2:0.97127, r_2:0.93526, fscore_2:0.95292
 purity:0.97127, divergence:2.28005, drop:0.0222
 
+2021.5.22
+size_gt:64182, size_pred:64182
+gt: img_sum:63590, id_sum:832
+cluster: img_sum:63590, id_sum:1298 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.9785, 0.98141, 0, 0.97995, 0.93662
+avg_pre, avg_rec, pairwise-F1, fmi:0.89433, 0.9847, 0.93734, 0.93843
+macro-F1: p_1:0.99386, r_1:0.93716, fscore_1:0.96468
+micro-F1: p_2:0.96135, r_2:0.9688, fscore_2:0.96506
+purity:0.96135, divergence:1.78486, drop:0.0092
+
+img_sum:64182, id_sum:1700, keynotes_sum:3727, 2.2img/id
+used: 234.2s=3.9min
+size_gt:64182, size_pred:63934
+gt: img_sum:62513, id_sum:831
+cluster: img_sum:62513, id_sum:1697 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98566, 0.96393, 0, 0.97467, 0.97107
+avg_pre, avg_rec, pairwise-F1, fmi:0.96875, 0.97404, 0.97139, 0.97139
+macro-F1: p_1:0.99376, r_1:0.89861, fscore_1:0.94379
+micro-F1: p_2:0.981, r_2:0.93533, fscore_2:0.95762
+purity:0.981, divergence:2.25993, drop:0.0222
+
 th=0.5, knn, 加废片簇;  blur >= 0.1 && cos_1 < 0.95 add; blur >= 0.1 && cos_1 >= 0.95 update   ****** t_7.jl  
 加了 同镜
 img_sum:64182, id_sum:704, keynotes_sum:25522, 36.3img/id

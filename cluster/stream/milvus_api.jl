@@ -6,6 +6,7 @@ using Strs, NPZ
 import Base.Threads.@spawn
 using SimilaritySearch
 using Strs
+using LinearAlgebra
 
 
 function commen_api(component, method, body="", show=false)
@@ -146,33 +147,25 @@ end
 function search_obj_batch(collection_name, vectors, top_k)
     # 异步IO, 并发查询
     bs = 100
-    batch = ceil(Int, length(vectors) / bs)
+    size_vec = length(vectors)
+    batch = ceil(Int, size_vec / bs)
     start = 0
-    dists, idxs = nothing, nothing
-    # println(f"\(bs), \(batch)")
-    @sync for i in 1:batch    # 
-        @async begin   # 乱序的   
-        start = (i-1)*bs
-        if i == batch
-            bs = length(vectors) - (batch-1)*bs     
+    dists = zeros(Float32, (size_vec, top_k))
+    idxs = zeros(Int32, (size_vec, top_k))
+    # dists, idxs = nothing, nothing
+    println(f"\(bs), \(batch)")
+    @sync for i in 1:batch 
+        @async begin   # 乱序的 
+            start = (i-1)*bs
+            if i == batch
+                bs = length(vectors) - (batch-1)*bs     
+            end
+            rank_result = search_obj(collection_name, vectors[start+1:start+bs], top_k)
+            dist, idx = prcoess_results_3(rank_result, top_k)  # 解析rank结果
+            println(f"\(i), \(bs), \(start+1): \(start+bs), \(size(dist)), \(size(idx))")
+            dists[start+1:start+bs, :] = dist
+            idxs[start+1:start+bs, :] = idxs
         end
-        
-        # println(f"\(i), \(bs), \(start+1): \(start+bs)")
-        rank_result = search_obj(collection_name, vectors[start+1:start+bs], top_k)
-        dist, idx = prcoess_results_3(rank_result, top_k)  # 解析rank结果
-        # println(f"\(size(dist)), \(size(idx))")
-        if i == 1
-            dists = dist
-            idxs = idx
-        else
-            dists = vcat(dists, dist)
-            idxs = vcat(idxs, idx)
-        end
-        # println(f"\(i), \(size(dists)), \(size(idxs))")
-        # push!(results, rank_result)
-        # start += bs
-        end
-        
     end
     return dists, idxs
 end
@@ -199,7 +192,6 @@ end
 
 function prcoess_results_3(results, topk)
     # println(length(results))
-    
     size = results["num"]
     result = results["result"]
 
@@ -268,53 +260,6 @@ function matix2Vectors(b)
     return c
 end
 
-function test_ss()
-    # 基于 SimilaritySearch.jl, 但是结果不准确, 还要查出 n*m,再取topk.
-    feats = npzread("/mnt/zy_data/data/longhu_1/feats.npy")
-    # feats = convert(Matrix, feats[1:end, 1:end])
-    feats = matix2Vectors(feats)
-
-    feats = [[0.1 0.2 0.7], [0.1 0.2 0.7], [0.1 0.2 0.7],]
-    size_1 = size(feats)
-    println(size(feats), typeof(feats))
-
-    t0 = Dates.now()
-    # gallary = feats
-    query = feats  # [1:10]
-    gallary = query
-    topk = 3
-    index = ExhaustiveSearch(CosineDistance(), gallary, KnnResult(topk))  # gallary是Vectors,不支持增量add
-    # index = Kvp(NormalizedCosineDistance(), gallary);
-    out = [search(index, q, KnnResult(topk)) for q in query]
-    # println(length(out), out)
-    dists, idxs = prcoess_ss(out, topk)  # 解析
-    
-    println(dists)
-    println(idxs)
-    
-    t1 = Dates.now()
-    println("used: ", (t1 - t0).value/1000, "s, ", size_1)
-
-    return out
-end
-
-
-function prcoess_ss(results, topk)
-    # println(length(results))
-    size = length(results)
-    dists = zeros(Float32, (size, topk))
-    idxs = zeros(Int32, (size, topk))
-    for (i, p) in enumerate(results)
-        for (j, pp) in enumerate(p)
-            # println(f"\(i), \(j), \(pp.id), \(pp.dist)")
-            dists[i, j] = pp.dist
-            idxs[i, j] = pp.id
-        end
-    end
-    dists = reverse(dists, dims=2)
-    idxs = reverse(idxs, dims=2)
-    return dists, idxs
-end
 
 
 function test_1()
@@ -360,7 +305,7 @@ function test_2()
     # get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
     # println(get_coll_info)
     top_k = 100
-    bs = 8000
+    bs = 1000
     batch = ceil(Int, size_1 / bs)
     start = 0
     @showprogress for i in 1:batch
@@ -391,8 +336,8 @@ end
 
 
 # test_1()
-# test_2()
-test_ss()
+test_2()
+
 
 
 #=

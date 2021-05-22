@@ -10,10 +10,9 @@ using ThreadsX
 using Folds, FoldsThreads
 using BangBang  # for `push!!`
 using SimilaritySearch
-using Strs
 include("milvus_api.jl")
 include("keyby.jl")
-# include("faiss_api.jl")
+include("ann.jl")
 
 
 mutable struct Node <: Any
@@ -155,7 +154,7 @@ struct HAC <: Transducer
     batch_size::Int32   
 end
 
-HAC() = HAC(100, 0.5, 1000)  # 初始化结构体
+HAC() = HAC(100, 0.5, 200)  # 初始化结构体
 
 function Transducers.start(rf::R_{HAC}, result)  
     hac = xform(rf)
@@ -215,19 +214,18 @@ function Transducers.next(rf::R_{HAC}, result, input)
             gallery = vectors  # vcat((hcat(i...) for i in vectors)...)  # Vectors -> Matrix
             query = gallery
             # ids = vcat((hcat(i...) for i in ids)...)
-            feats_1 = knn_feat(collection_name, gallery, query, num-batch_size)  # knn
-            feats_2 = matix2Vectors(feats_1)   # knn feats
-            # feats_2 = vectors  # 不用knn
+            # feats_1 = knn_feat(collection_name, gallery, query, num-batch_size)  # knn
+            # feats_2 = matix2Vectors(feats_1)   # knn feats
+            feats_2 = vectors  # 不用knn
             # search top_k 
             # dists_1, idxs_1 = rank_2(feats_1, top_k, num-batch_size)    # 在本批查询, NN
-            # dists_1, idxs_1 = rank_1(feats_1, top_k, num-batch_size)    # 在本批查询, faiss
             # dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)
             dists_1, idxs_1 = rank_4(feats_2, feats_2, top_k, num-batch_size)  # 在本批查询
             # println(feats_2)
-            rank_result = search_obj(collection_name, feats_2, top_k)  # search rank in milvus/fse 
-            dists_2, idxs_2 = prcoess_results_3(rank_result, top_k)
-            # dists_2, idxs_2 = search_obj_batch(collection_name, feats_2, top_k)
-            
+            # rank_result = search_obj(collection_name, feats_2, top_k)  # search rank in milvus/fse 
+            # dists_2, idxs_2 = prcoess_results_3(rank_result, top_k)
+            dists_2, idxs_2 = search_obj_batch(collection_name, feats_2, top_k)
+            println(f"\(size(dists_1)), \(size(dists_2))")
             dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2) 
             idxs = size(idxs_2)[1] == 0 ? idxs_1 : hcat(idxs_1, idxs_2)
             # println(f"===:\(num), \(size(dists)), \(size(idxs))")
@@ -376,102 +374,6 @@ function prase_json(json_data)
     # println(node)
 
     return node
-end
-
-function rank_1(feats, top_k, n)
-    # base faiss_python
-    query = np.array(feats)
-    gallery = query
-    feat_dim = query.shape[1]
-    index = create_index(feat_dim, "")
-    dists, idxs = rank(index, query, gallery, topk=top_k)
-    idxs = idx .+ n
-    return dists, idxs
-end
-
-function rank_2(feats, top_k, n)
-    # base NearestNeighbors.jl, top_k
-    # feats = vcat((hcat(i...) for i in feats)...)
-    X = transpose(feats)  # 矩阵转置, 也可以用 x'. 必须. 垃圾
-    X = convert(Array, X)
-    # println("size(x):", size(X), " ", typeof(X))
-    
-    gallery = X
-    query = X
-    # top_k = top_k == 100 ? top_k-1 : top_k
-    top_k = top_k >=size(gallery)[2] ? size(gallery)[2] : top_k
-    brutetree = BruteTree(gallery, Euclidean())  # 暴力搜索树, 只支持Euclidean()不支持CosineDist(),但是可以转换. 没有增量add方式
-    # kdtree = KDTree(gallery, leafsize=4)   # 同index.add(gallery) 
-    idxs, dists = knn(brutetree, query, top_k, true)  # 单线程的, 很慢.  # query top_k  
-    dists = vcat((hcat(i...) for i in dists)...)  # 转换 shape
-    idxs = vcat((hcat(i...) for i in idxs)...)  # 转换 shape
-    # 后处理
-    dists = 1 .- dists ./ 2
-    idxs = idxs .+ n
-    return dists, idxs
-end
-
-function rank_3(gallery, query, ids, top_k)
-    # knn, top_k. 基于NN的. 内存式,小批量适用. 支持id
-    gallery = convert(Array, transpose(gallery))  # 矩阵转置, 也可以用 x'. 必须. 垃圾
-    # println("size(gallery):", size(gallery), " ", typeof(gallery))
-    top_k = top_k >=size(gallery)[2] ? size(gallery)[2] : top_k
-    
-    query = convert(Array, transpose(query))  # 矩阵转置, 也可以用 x'. 必须. 垃圾
-    # println("size(query):", size(query), " ", typeof(query))
-
-    brutetree = BruteTree(gallery, Euclidean())  # 暴力搜索树, 只支持Euclidean()不支持CosineDist(),但是可以转换. 没有增量add方式
-    # kdtree = KDTree(gallery, leafsize=4)   # 同index.add(gallery) 
-    idxs, dists = knn(brutetree, query, top_k, true)  # 单线程的, 很慢.  # query top_k  
-    dists = vcat((hcat(i...) for i in dists)...)  # 转换 shape
-    idxs = vcat((hcat(i...) for i in idxs)...)  # 转换 shape
-    # println(f"\(size(idxs)), \(size(idxs)), \(size(ids)), \(ids)")
-    idxs = ids[idxs]
-    # idxs = vcat((hcat(i...) for i in idxs)...)  # 转换 shape
-    # println(f"\(size(idxs)), \(size(idxs)), \(size(ids)), \(ids)")
-    # 后处理
-    dists = 1 .- dists ./ 2
-    idxs = idxs
-    return dists, idxs
-end
-
-function rank_4(gallery, query, top_k, n)
-    # base SimilaritySearch.jl
-    # feats = matix2Vectors(feats)
-    println(size(query), typeof(query))
-
-    top_k_1 = size(gallery)[1]
-
-    t0 = Dates.now()
-    index = ExhaustiveSearch(CosineDistance(), gallery)   # gallary是Vectors,不支持增量add
-    out = [search(index, q, KnnResult(top_k_1)) for q in query]
-    # println(length(out), out)
-    dists, idxs = prcoess_ss(out, top_k_1)  # 解析
-
-    dists = dists[:,1:top_k]
-    idxs = idxs[:,1:top_k]
-    println(size(dists), typeof(dists))
-
-    # 后处理
-    idxs = idxs .+ n
-    return dists, idxs
-end
-
-function prcoess_ss(results, topk)
-    # println(length(results))
-    size = length(results)
-    dists = zeros(Float32, (size, topk))
-    idxs = zeros(Int32, (size, topk))
-    for (i, p) in enumerate(results)
-        for (j, pp) in enumerate(p)
-            # println(f"\(i), \(j), \(pp.id), \(pp.dist)")
-            dists[i, j] = pp.dist
-            idxs[i, j] = pp.id
-        end
-    end
-    dists = reverse(dists, dims=2)
-    idxs = reverse(idxs, dims=2)
-    return dists, idxs
 end
 
 function knn_feat(collection_name, gallery, query, n)

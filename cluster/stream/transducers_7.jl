@@ -162,7 +162,7 @@ function Transducers.start(rf::R_{HAC}, result)
     nodes = Dict()     # 节点信息.  最好只存代表点
     clusters = Dict("0"=>Cluster("0", 0, 0, [], 0, 0))    # 簇信息 
     tracks = Dict()    # 跟踪信息
-    collection_name = creat_collection("repo_test_3", 384)   # init index
+    collection_name = creat_collection("repo_test_2", 384)   # init index
     vectors = []  # 把一批的feat存到状态里. 为batch加的
     ids = []
     size_keynotes = 0      # 代表点数量
@@ -224,8 +224,13 @@ function Transducers.next(rf::R_{HAC}, result, input)
             # println(feats_2)
             # rank_result = search_obj(collection_name, feats_2, top_k)  # search rank in milvus/fse 
             # dists_2, idxs_2 = prcoess_results_3(rank_result, top_k)
-            dists_2, idxs_2 = search_obj_batch(collection_name, feats_2, top_k)
-            # println(f"\(size(dists_1)), \(size(dists_2))")
+            if num == batch_size
+                dists_2 = zeros(Float32, (0, top_k))
+                idxs_2 = zeros(Int32, (0, top_k))
+            else
+                dists_2, idxs_2 = search_obj_batch(collection_name, feats_2, top_k)
+            end
+            println(f"\(size(dists_1)), \(size(dists_2))")
             dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2) 
             idxs = size(idxs_2)[1] == 0 ? idxs_1 : hcat(idxs_1, idxs_2)
             # println(f"===:\(num), \(size(dists)), \(size(idxs))")
@@ -573,7 +578,7 @@ function eval_1(file_name)
     cluster_path = os.path.join(dir_1, "out_1", $file_name)
     labels_pred_df = pd.read_csv(cluster_path, names=["obj_id", "person_id"])
 
-    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_21-small_1.pkl")  # 21  9
+    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_9-small_1.pkl")  # 21  9
     gt_sorted_df = pd.read_pickle(gt_path)
 
     labels_true, labels_pred, _ = eval_cluster.align_gt(gt_sorted_df, labels_pred_df)
@@ -589,7 +594,7 @@ end
 
 function main()
     # input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # input_languang_5_2
-    input_path = "/mnt/zy_data/data/languang/input_languang_5_2.json"   # input_new.json
+    input_path = "/mnt/zy_data/data/languang/input_languang_4_2.json"   # input_new.json
     out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_5.csv"
     test_1(input_path, out_path)
     # eval_1(basename(out_path))   # 评估

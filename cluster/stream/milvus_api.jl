@@ -41,6 +41,7 @@ function creat_collection(collection_name, dim)
     try
         delete_collection(collection_name)
         println("delete collection ok")
+        sleep(3)
     catch
         println("collection not exist, delete error")
     end
@@ -54,14 +55,14 @@ function creat_collection(collection_name, dim)
     body = JSON3.write(body_dict)
     try
         creat_coll = commen_api("collections", "POST", body)  # 创建collection
-        println("creat_coll ok")
-    catch 
+        println("creat_coll ok:")
+    catch
         println("create coll error")
     end
     
     # get_colls = commen_api("collections", "GET", "")  # 获取到所有collections的信息
     get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
-    println("get_coll_info ok")
+    println("get_coll_info ok", get_coll_info)
 
     return collection_name
 
@@ -96,15 +97,18 @@ function insert_obj_batch(collection_name, vectors, ids)
     # 异步IO, 并发查询
     bs = 100
     batch = ceil(Int, length(vectors) / bs)
+    if batch < 10
+        bs = length(vectors)
+    end
     start = 0
     @sync for i in 1:batch
-        @async begin
+        @sync begin
         start = (i-1)*bs
-        if i == batch
-            bs = length(vectors) - (batch-1)*bs
-        end
+        # if i == batch
+        #     bs = length(vectors) - (batch-1)*bs
+        # end
         # println(f"\(i), \(bs), \(start+1): \(start+bs), \(length(vectors))")
-        insert_obj(collection_name, vectors[start+1:start+bs], ids[start+1:start+bs])
+        insert_obj(collection_name, vectors[(i-1)*bs+1:(i-1)*bs+bs], ids[(i-1)*bs+1:(i-1)*bs+bs])
         # start += bs
         end
     end
@@ -154,8 +158,8 @@ function search_obj_batch(collection_name, vectors, top_k)
     # start = 0
     dists = zeros(Float32, (size_vec, top_k))
     idxs = zeros(Int32, (size_vec, top_k))
-    # println(f"\(bs), \(batch)")
-    @async for i in 1:batch 
+    println(f"\(bs), \(batch), \(size_vec)")
+    @sync for i in 1:batch 
         @async begin   # 乱序的
             start = (i-1)*bs
             # if i == batch
@@ -163,9 +167,10 @@ function search_obj_batch(collection_name, vectors, top_k)
             # end
         
             rank_result = search_obj(collection_name, vectors[(i-1)*bs+1:(i-1)*bs+bs], top_k)
+            # println(rank_result)
             dist, idx = prcoess_results_3(rank_result, top_k)  # 解析rank结果
             # # 解析比查询还慢
-            # # println(f"\(i), \(bs), \((i-1)*bs+1): \((i-1)*bs+bs), \(size(dist)), \(size(idx))")
+            println(f"\(i), \(bs), \((i-1)*bs+1): \((i-1)*bs+bs), \(size(dist)), \(size(idx))")
             dists[(i-1)*bs+1:(i-1)*bs+bs, :] = dist
             idxs[(i-1)*bs+1:(i-1)*bs+bs, :] = idx
         end
@@ -194,15 +199,13 @@ function get_feat(collection_name, ids)
 end
 
 function prcoess_results_3(results, topk)
-    # println(length(results))
     size = results["num"]
     result = results["result"]
-    
     dists = zeros(Float32, (size, topk)) 
     idxs = zeros(Int32, (size, topk))
-
-    @inbounds for i in 1:size
-        @inbounds for j in 1:topk
+    # println(size, result)
+    for i in 1:size
+        for j in 1:topk
             try  
                 data = result[i][j]
                 if data["id"] == "-1"
@@ -303,12 +306,12 @@ function test_2()
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, "s, ", size_1)
     # println(size(feats))
-    collection_name = "test2"
+    collection_name = "test1"
     creat_collection(collection_name, 384)  # 384
     # get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
     # println(get_coll_info)
     top_k = 100
-    bs = 2000
+    bs = 1000
     batch = ceil(Int, size_1 / bs)
     start = 0
     @showprogress for i in 1:batch
@@ -320,6 +323,7 @@ function test_2()
         query_vectors = vectors
         ids = [string(j) for j in start+1:start+bs]
         # println(size(qurey_vectors), size(ids))
+        # insert_obj(collection_name, vectors, ids)
         insert_obj_batch(collection_name, vectors, ids)   # add  insert_obj
         dists, idxs = search_obj_batch(collection_name, query_vectors, top_k)
 
@@ -327,11 +331,12 @@ function test_2()
         # rank_result = search_obj(collection_name, query_vectors, top_k)  # rank
         # dists, idxs = prcoess_results_3(rank_result, top_k)  # 解析rank结果
 
-        # if i == 8
-        #     # println(rank_result)
-        #     println(dists[1:10, 1:5])
-        #     # println(idxs)
-        # end
+        if i == 8
+            # println(rank_result)
+            println(dists[1:10, 1:5])
+            # println(idxs)
+            break
+        end
         start += bs
     end
     println("used: ", (Dates.now() - t1).value/1000, "s")

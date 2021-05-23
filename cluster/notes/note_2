@@ -51,7 +51,7 @@ purity:0.99693, divergence:10.84889, drop:0.0180
 
 ------------------------------------------
 测速:  open and prase_json
-6.4w
+6.4w   
 Transducers.foldxt()  nthreads:1
 18.683546 seconds (45.73 M allocations: 6.369 GiB, 6.27% gc time, 4.77% compilation time)
 Transducers.foldxt()  nthreads:4     没有加速

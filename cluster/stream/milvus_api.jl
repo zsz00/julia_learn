@@ -4,7 +4,6 @@ using Dates, BenchmarkTools
 using ProgressMeter
 using Strs, NPZ
 import Base.Threads.@spawn
-using SimilaritySearch
 using Strs
 using LinearAlgebra
 
@@ -149,22 +148,26 @@ function search_obj_batch(collection_name, vectors, top_k)
     bs = 100
     size_vec = length(vectors)
     batch = ceil(Int, size_vec / bs)
-    start = 0
+    if batch < 10
+        bs = length(vectors)
+    end
+    # start = 0
     dists = zeros(Float32, (size_vec, top_k))
     idxs = zeros(Int32, (size_vec, top_k))
-    # dists, idxs = nothing, nothing
-    println(f"\(bs), \(batch)")
-    @sync for i in 1:batch 
-        @async begin   # 乱序的 
+    # println(f"\(bs), \(batch)")
+    @async for i in 1:batch 
+        @async begin   # 乱序的
             start = (i-1)*bs
-            if i == batch
-                bs = length(vectors) - (batch-1)*bs     
-            end
-            rank_result = search_obj(collection_name, vectors[start+1:start+bs], top_k)
+            # if i == batch
+            #     bs = length(vectors) - (batch-1)*bs     
+            # end
+        
+            rank_result = search_obj(collection_name, vectors[(i-1)*bs+1:(i-1)*bs+bs], top_k)
             dist, idx = prcoess_results_3(rank_result, top_k)  # 解析rank结果
-            println(f"\(i), \(bs), \(start+1): \(start+bs), \(size(dist)), \(size(idx))")
-            dists[start+1:start+bs, :] = dist
-            idxs[start+1:start+bs, :] = idxs
+            # # 解析比查询还慢
+            # # println(f"\(i), \(bs), \((i-1)*bs+1): \((i-1)*bs+bs), \(size(dist)), \(size(idx))")
+            dists[(i-1)*bs+1:(i-1)*bs+bs, :] = dist
+            idxs[(i-1)*bs+1:(i-1)*bs+bs, :] = idx
         end
     end
     return dists, idxs
@@ -194,23 +197,23 @@ function prcoess_results_3(results, topk)
     # println(length(results))
     size = results["num"]
     result = results["result"]
-
-    dists = zeros(Float32, (size, topk))
+    
+    dists = zeros(Float32, (size, topk)) 
     idxs = zeros(Int32, (size, topk))
 
-    for i in 1:size
-        for j in 1:topk
-            try
+    @inbounds for i in 1:size
+        @inbounds for j in 1:topk
+            try  
                 data = result[i][j]
                 if data["id"] == "-1"
-                    dists[i, j] = -1
+                    dists[i, j] = -1.0
                     idxs[i, j] = -1
                 else
                     dists[i, j] = parse(Float32, data["distance"])
                     idxs[i, j] = parse(Int32, data["id"])
                 end
             catch
-                dists[i, j] = -1
+                dists[i, j] = -1.0
                 idxs[i, j] = -1
             end
         end
@@ -295,7 +298,7 @@ function test_2()
         feats = npzread("/mnt/zy_data/data/longhu_1/feats.npy")
     end
 
-    feats = convert(Matrix, feats[1:end, 1:end])
+    feats = convert(Matrix, feats[1:195000, 1:end])
     size_1 = size(feats)[1]
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, "s, ", size_1)
@@ -305,7 +308,7 @@ function test_2()
     # get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
     # println(get_coll_info)
     top_k = 100
-    bs = 1000
+    bs = 2000
     batch = ceil(Int, size_1 / bs)
     start = 0
     @showprogress for i in 1:batch
@@ -324,11 +327,11 @@ function test_2()
         # rank_result = search_obj(collection_name, query_vectors, top_k)  # rank
         # dists, idxs = prcoess_results_3(rank_result, top_k)  # 解析rank结果
 
-        if i == 8
-            # println(rank_result)
-            println(dists[1:10, 1:5])
-            # println(idxs)
-        end
+        # if i == 8
+        #     # println(rank_result)
+        #     println(dists[1:10, 1:5])
+        #     # println(idxs)
+        # end
         start += bs
     end
     println("used: ", (Dates.now() - t1).value/1000, "s")
@@ -336,7 +339,7 @@ end
 
 
 # test_1()
-test_2()
+# @time test_2()
 
 
 
@@ -391,4 +394,9 @@ Float32[1.0 0.69019 0.523482 0.32853 0.327218; 1.0 0.915945 0.911485 0.901234 0.
 1.0 0.921935 0.920591 0.90967 0.813638; 1.0 0.797913 0.708142 0.707742 0.707155]
 used: 222.05s
 
+
+45s
+105s
+211s
+177s
 =#

@@ -154,7 +154,7 @@ struct HAC <: Transducer
     batch_size::Int32   
 end
 
-HAC() = HAC(100, 0.5, 200)  # 初始化结构体
+HAC() = HAC(100, 0.5, 1000)  # 初始化结构体
 
 function Transducers.start(rf::R_{HAC}, result)  
     hac = xform(rf)
@@ -214,9 +214,9 @@ function Transducers.next(rf::R_{HAC}, result, input)
             gallery = vectors  # vcat((hcat(i...) for i in vectors)...)  # Vectors -> Matrix
             query = gallery
             # ids = vcat((hcat(i...) for i in ids)...)
-            # feats_1 = knn_feat(collection_name, gallery, query, num-batch_size)  # knn
-            # feats_2 = matix2Vectors(feats_1)   # knn feats
-            feats_2 = vectors  # 不用knn
+            feats_1 = knn_feat(collection_name, gallery, query, num-batch_size)  # knn
+            feats_2 = matix2Vectors(feats_1)   # knn feats
+            # feats_2 = vectors  # 不用knn
             # search top_k 
             # dists_1, idxs_1 = rank_2(feats_1, top_k, num-batch_size)    # 在本批查询, NN
             # dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)
@@ -225,7 +225,7 @@ function Transducers.next(rf::R_{HAC}, result, input)
             # rank_result = search_obj(collection_name, feats_2, top_k)  # search rank in milvus/fse 
             # dists_2, idxs_2 = prcoess_results_3(rank_result, top_k)
             dists_2, idxs_2 = search_obj_batch(collection_name, feats_2, top_k)
-            println(f"\(size(dists_1)), \(size(dists_2))")
+            # println(f"\(size(dists_1)), \(size(dists_2))")
             dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2) 
             idxs = size(idxs_2)[1] == 0 ? idxs_1 : hcat(idxs_1, idxs_2)
             # println(f"===:\(num), \(size(dists)), \(size(idxs))")
@@ -570,7 +570,7 @@ function eval_1(file_name)
 
 
     dir_1 = "/mnt/zy_data/data/pk/pk_13/output_1"
-    cluster_path = os.path.join(dir_1, "out_1", $file_name)  # out_1_21.csv
+    cluster_path = os.path.join(dir_1, "out_1", $file_name)
     labels_pred_df = pd.read_csv(cluster_path, names=["obj_id", "person_id"])
 
     gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_21-small_1.pkl")  # 21  9
@@ -590,7 +590,7 @@ end
 function main()
     # input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # input_languang_5_2
     input_path = "/mnt/zy_data/data/languang/input_languang_5_2.json"   # input_new.json
-    out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_4.csv"
+    out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_5.csv"
     test_1(input_path, out_path)
     # eval_1(basename(out_path))   # 评估
 end
@@ -645,9 +645,9 @@ milvus add with ids ,  OK
 
 联调: 跑通. 很慢.  
 milvus很慢, gpu使用率非常低. cpu利用率也很低[40%]. 
+发现慢不是因为milvus慢, 是因为前后处理慢. 
 
-
-6.4w
+6.4w  all ops
 used: 2138.8s=35.6min   foldl
 used: 2113.4s=35.2min   foldxt  
 used: 313.9s=5.2min  foldl  0.21机器,milvus也在这里

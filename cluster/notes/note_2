@@ -35,8 +35,22 @@ macro-F1: p_1:0.99612, r_1:0.91231, fscore_1:0.95237
 micro-F1: p_2:0.92921, r_2:0.93714, fscore_2:0.93316
 purity:0.92921, divergence:2.71057, drop:0.0366
 
+2021.5.23
+img_sum:1106092, id_sum:162064, keynotes_sum:75731, 0.5img/id
+used: 4294.6s=71.6min
+size_gt:1106092, size_pred:1105735
+gt: img_sum:1085806, id_sum:15095
+cluster: img_sum:1085806, id_sum:162050 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.99911, 0.74214, 0, 0.85166, 8.93358
+avg_pre, avg_rec, pairwise-F1, fmi:0.9933, 0.03138, 0.06083, 0.17654
+macro-F1: p_1:0.99792, r_1:0.49494, fscore_1:0.6617
+micro-F1: p_2:0.99693, r_2:0.24094, fscore_2:0.38808
+purity:0.99693, divergence:10.84889, drop:0.0180
+
+快了一倍, 但是结果不太对
+
 ------------------------------------------
-测速: 
+测速:  open and prase_json
 6.4w
 Transducers.foldxt()  nthreads:1
 18.683546 seconds (45.73 M allocations: 6.369 GiB, 6.27% gc time, 4.77% compilation time)

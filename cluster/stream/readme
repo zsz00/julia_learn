@@ -1,14 +1,13 @@
-
 data stream 
 base onlinestats, transducers
-2020.11.4 
+2020.11.4, 2021.1.30, 2021.3, 2021.5
 
-online cluster
-onlinestats_1 + milvus_api
+online cluster 
+方案1: onlinestats_1 + milvus_api
+方案2: transducers + milvus_api
 
 
 需要:
-
 0. 加多维信息   OK
 0. 加同镜,跨镜,多时空阶段聚类, 加窗口  *****
 1. 加代表点[OK], 代表点更新  OK

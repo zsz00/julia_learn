@@ -1,4 +1,4 @@
-# online cluster base on Transducers.   2021.1.30
+# online cluster base on Transducers.   2021.1.30, 2021.3, 2021.5
 using NPZ, JLD2, FileIO
 using Transducers
 using Transducers: R_, start, next, complete, inner, xform, wrap, unwrap, wrapping
@@ -183,17 +183,17 @@ function Transducers.next(rf::R_{HAC}, result, input)
         batch_size = hac.batch_size
         num += 1
 
-        # input是PrivateState对象, 可获得 前op的state和result
-        # top_k_st1, th_st1, batch_size_st1, num_st1, nodes_st1, clusters_st1, vectors_st1, ids_st1, size_keynotes_st1 = input.state  # state
-        # node_st1 = input.result  # input.result    input
-        node_st1 = input   # # 无同镜
+        # input是PrivateState对象, 可获得 前op的state和result. 同镜
+        top_k_st1, th_st1, batch_size_st1, num_st1, nodes_st1, clusters_st1, vectors_st1, ids_st1, size_keynotes_st1 = input.state  # state
+        node_st1 = input.result  # input.result    input
+        # node_st1 = input   # # 无同镜
         # println(f"node:\(node_st1)")
         node = node_st1
         feat_1 = node.feature   # 特征
         n_id = node.n_id
         c_id = node.c_id
-        # cluster = clusters_st1[c_id]
-        cluster = Cluster(c_id, 1, 1, [n_id], 0, 0)    # 无同镜
+        cluster = clusters_st1[c_id]   # 同镜
+        # cluster = Cluster(c_id, 1, 1, [n_id], 0, 0)    # 无同镜
 
         # init. 存了所有点
         nodes[n_id] = node 
@@ -522,6 +522,36 @@ function matix2Vectors(b)
     return c
 end
 
+function eval_1(file_name)
+    # pushfirst!(PyVector(pyimport("sys")."path"), "")
+    # pushfirst!(PyVector(pyimport("sys")."path"), "../..")
+
+    py"""
+    import os, sys
+    import numpy as np
+    import pandas as pd
+    sys.path.insert(0, "")
+    sys.path.insert(0, "..")
+    from utils import eval_cluster
+
+
+    dir_1 = "/mnt/zy_data/data/pk/pk_13/output_1"
+    cluster_path = os.path.join(dir_1, "out_1", $file_name)
+    labels_pred_df = pd.read_csv(cluster_path, names=["obj_id", "person_id"])
+
+    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_21-small_1.pkl")  # 21  9
+    gt_sorted_df = pd.read_pickle(gt_path)
+
+    labels_true, labels_pred, _ = eval_cluster.align_gt(gt_sorted_df, labels_pred_df)
+    metric, info = eval_cluster.eval(labels_true, labels_pred, is_show=True)
+    metric["img_count"] = len(labels_pred) * 1.0
+    metric["cluster_count"] = len(set(labels_pred)) * 1.0
+    metric["drop"] = (len(labels_pred_df) - len(labels_true)) / len(labels_pred_df)
+    print(f'drop:{metric["drop"]:.4f}')
+
+    """
+end
+
 # --------------------------------------------------------------
 # 主函数
 function test_1(input_path, out_path)
@@ -535,8 +565,8 @@ function test_1(input_path, out_path)
     op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
     op_hac = HAC()   # 全局, on all camera
     
-    aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> op_hac|> collect)
-    # aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1)|> op_hac |> collect )
+    # aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> op_hac|> collect)
+    aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1)|> op_hac |> collect )
     # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac    foldl foldxt
     # Folds.reduce((right, eachline(input_json) |> Map(prase_json) |> collect), NondeterministicEx()) 
 
@@ -561,46 +591,6 @@ function test_1(input_path, out_path)
 end
 
 
-function eval_1(file_name)
-    # pushfirst!(PyVector(pyimport("sys")."path"), "")
-    # pushfirst!(PyVector(pyimport("sys")."path"), "../..")
-
-    py"""
-    import os, sys
-    import numpy as np
-    import pandas as pd
-    sys.path.insert(0, "")
-    sys.path.insert(0, "..")
-    from utils import eval_cluster
-
-
-    dir_1 = "/mnt/zy_data/data/pk/pk_13/output_1"
-    cluster_path = os.path.join(dir_1, "out_1", $file_name)
-    labels_pred_df = pd.read_csv(cluster_path, names=["obj_id", "person_id"])
-
-    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_9-small_1.pkl")  # 21  9
-    gt_sorted_df = pd.read_pickle(gt_path)
-
-    labels_true, labels_pred, _ = eval_cluster.align_gt(gt_sorted_df, labels_pred_df)
-    metric, info = eval_cluster.eval(labels_true, labels_pred, is_show=True)
-    metric["img_count"] = len(labels_pred) * 1.0
-    metric["cluster_count"] = len(set(labels_pred)) * 1.0
-    metric["drop"] = (len(labels_pred_df) - len(labels_true)) / len(labels_pred_df)
-    print(f'drop:{metric["drop"]:.4f}')
-
-    """
-end
-
-
-function main()
-    # input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # input_languang_5_2
-    input_path = "/mnt/zy_data/data/languang/input_languang_4_2.json"   # input_new.json
-    out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_5.csv"
-    test_1(input_path, out_path)
-    # eval_1(basename(out_path))   # 评估
-end
-
-
 function test_2()
     println("nthreads:", Threads.nthreads())
     xs = randn(1000_000_000)
@@ -608,6 +598,16 @@ function test_2()
     bb = foldxt(+, Map(sin), xs)
     print(bb)
 end
+
+
+function main()
+    # input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # input_languang_5_2
+    input_path = "/mnt/zy_data/data/languang/input_languang_5_2.json"   # input_new.json
+    out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_5.csv"
+    test_1(input_path, out_path)
+    # eval_1(basename(out_path))   # 评估
+end
+
 
 
 @time main()

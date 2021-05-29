@@ -231,7 +231,7 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 dists_2, idxs_2 = search_obj_batch(collection_name, feats_2, top_k)
             end
             println(f"\(size(dists_1)), \(size(dists_2))")
-            dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2) 
+            dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2)
             idxs = size(idxs_2)[1] == 0 ? idxs_1 : hcat(idxs_1, idxs_2)
             # println(f"===:\(num), \(size(dists)), \(size(idxs))")
 
@@ -331,7 +331,7 @@ function union_2!(id_1, id_2, nodes, clusters)
             if idx_ in keys(nodes)
                 nodes[idx_].c_id = id_max
             else
-                println(f"union_2: \(idx_) no in nodes")
+                println(f"union_2: \(idx_) not in nodes")
             end
         end
         append!(clusters[id_max].c_members, pop!(clusters, id_min).c_members)  # 合并
@@ -390,7 +390,7 @@ function knn_feat(collection_name, gallery, query, n)
     # dists_1, idxs_1 = rank_1(query, top_k, n)  # 在本批查询   faiss
     # dists_1, idxs_1 = rank_2(query, top_k, n)  # 在本批查询
     # dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)  # 在本批查询
-    dists_1, idxs_1 = rank_4(query, query, top_k, n)  # 在本批查询
+    dists_1, idxs_1 = rank_4(query, query, top_k, n)  # 在本批查询, 基于SimilaritySearch.jl
 
     query_1 = query  # matix2Vectors(query)
     rank_result = search_obj(collection_name, query_1, 5)   # search top5 in milvus/fse 
@@ -620,7 +620,7 @@ julia stream/transducers_7.jl
 ----------------------------------------
 TODO:
 0. 加多维信息   OK
-0. 加同镜,跨镜,多时空阶段聚类 [keyby]  *****
+0. 加同镜,跨镜,多时空阶段聚类 [加了keyby,慢]  *****
 1. 加代表点[OK], 代表点更新  OK
 2. 质量加权动态阈值, 加权到knn里
 3. 加knn feat.  OK

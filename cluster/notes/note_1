@@ -580,6 +580,59 @@ micro-F1: p_2:0.9613, r_2:0.96892, fscore_2:0.96509
 purity:0.9613, divergence:1.78005, drop:0.0093
 
 2021.5.29   th=0.5, knn, 有同镜, bs=1000, top_k=100   慢
+img_sum:64182, id_sum:649, keynotes_sum:2982, 4.6img/id
+used: 1712.3s=28.5min
+size_gt:64182, size_pred:63943
+gt: img_sum:58738, id_sum:823
+cluster: img_sum:58738, id_sum:648 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.86425, 0.99192, 0, 0.9237, 0.58627
+avg_pre, avg_rec, pairwise-F1, fmi:0.42242, 0.99286, 0.59268, 0.64761
+macro-F1: p_1:0.97042, r_1:0.97904, fscore_1:0.97471
+micro-F1: p_2:0.74396, r_2:0.98527, fscore_2:0.84778
+purity:0.74396, divergence:1.15553, drop:0.0814
+
+img_sum:64182, id_sum:1299, keynotes_sum:3434, 2.6img/id  14169, 10.9img/id
+used: 206.1s=3.4min
+size_gt:64182, size_pred:63972
+gt: img_sum:63380, id_sum:832
+cluster: img_sum:63380, id_sum:1297 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.97883, 0.98146, 0, 0.98014, 0.9369
+avg_pre, avg_rec, pairwise-F1, fmi:0.89477, 0.9848, 0.93763, 0.9387
+macro-F1: p_1:0.99389, r_1:0.93776, fscore_1:0.96501
+micro-F1: p_2:0.96168, r_2:0.9689, fscore_2:0.96528
+purity:0.96168, divergence:1.78125, drop:0.0093
+
+----------------------
+2021.5.29   th=0.5, knn, 无同镜, bs=100, top_k=100
+img_sum:64182, id_sum:1695, keynotes_sum:3778, 2.2img/id
+used: 226.0s=3.8min
+size_gt:64182, size_pred:63934
+gt: img_sum:62512, id_sum:831
+cluster: img_sum:62512, id_sum:1692 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98564, 0.96404, 0, 0.97472, 0.97116
+avg_pre, avg_rec, pairwise-F1, fmi:0.96871, 0.97425, 0.97147, 0.97148
+macro-F1: p_1:0.99374, r_1:0.89883, fscore_1:0.9439
+micro-F1: p_2:0.98098, r_2:0.93542, fscore_2:0.95766
+purity:0.98098, divergence:2.25391, drop:0.0222
+
+2021.5.29   th=0.5, knn, 无同镜, bs=100, top_k=100
+改了下 近废片库的条件. &&->||
+img_sum:64182, id_sum:639, keynotes_sum:9960, 15.6img/id   14120
+used: 225.4s=3.8min
+size_gt:64182, size_pred:63698
+gt: img_sum:45002, id_sum:665
+cluster: img_sum:45002, id_sum:638 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98696, 0.9973, 0, 0.99211, 0.98661
+avg_pre, avg_rec, pairwise-F1, fmi:0.97712, 0.99662, 0.98677, 0.98682
+macro-F1: p_1:0.99262, r_1:0.99271, fscore_1:0.99267
+micro-F1: p_2:0.98253, r_2:0.99767, fscore_2:0.99004
+purity:0.98253, divergence:1.14135, drop:0.2935
+
+
+
+
+
+
 
 
 

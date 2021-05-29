@@ -68,6 +68,10 @@ function creat_collection(collection_name, dim)
 
 end
 
+function get_coll_info(collection_name)
+    get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
+    println("get_coll_info:\n", get_coll_info)  
+end
 
 function delete_collection(collection_name)
     # commen_api(component, method, body)
@@ -269,8 +273,11 @@ end
 
 
 function test_1()
-    collection_name = "test_coll_1"
-    creat_collection(collection_name, 2)
+    collection_name = "repo_test_2"
+    # creat_collection(collection_name, 2)
+    get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
+    println(get_coll_info)
+    return 0
 
     vectors = [[1.0, 2.0], [2.2, 3.2], [3.1, 4.1]]
     # ids = ["aesa6ut","bdg5r","crdf3w"]  # string list
@@ -343,7 +350,7 @@ function test_2()
 end
 
 
-# test_1()
+test_1()
 # @time test_2()
 
 

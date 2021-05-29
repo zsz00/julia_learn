@@ -154,7 +154,7 @@ struct HAC <: Transducer
     batch_size::Int32   
 end
 
-HAC() = HAC(100, 0.5, 1000)  # 初始化结构体
+HAC() = HAC(100, 0.5, 100)  # 初始化结构体
 
 function Transducers.start(rf::R_{HAC}, result)  
     hac = xform(rf)
@@ -184,16 +184,16 @@ function Transducers.next(rf::R_{HAC}, result, input)
         num += 1
 
         # input是PrivateState对象, 可获得 前op的state和result. 同镜
-        top_k_st1, th_st1, batch_size_st1, num_st1, nodes_st1, clusters_st1, vectors_st1, ids_st1, size_keynotes_st1 = input.state  # state
-        node_st1 = input.result  # input.result    input
-        # node_st1 = input   # # 无同镜
+        # top_k_st1, th_st1, batch_size_st1, num_st1, nodes_st1, clusters_st1, vectors_st1, ids_st1, size_keynotes_st1 = input.state  # state
+        # node_st1 = input.result  # input.result    input
+        node_st1 = input   # # 无同镜
         # println(f"node:\(node_st1)")
         node = node_st1
         feat_1 = node.feature   # 特征
         n_id = node.n_id
         c_id = node.c_id
-        cluster = clusters_st1[c_id]   # 同镜
-        # cluster = Cluster(c_id, 1, 1, [n_id], 0, 0)    # 无同镜
+        # cluster = clusters_st1[c_id]   # 同镜
+        cluster = Cluster(c_id, 1, 1, [n_id], 0, 0)    # 无同镜
 
         # init. 存了所有点
         nodes[n_id] = node 
@@ -217,11 +217,12 @@ function Transducers.next(rf::R_{HAC}, result, input)
             feats_1 = knn_feat(collection_name, gallery, query, num-batch_size)  # knn
             feats_2 = matix2Vectors(feats_1)   # knn feats
             # feats_2 = vectors  # 不用knn
+            
             # search top_k 
-            # dists_1, idxs_1 = rank_2(feats_1, top_k, num-batch_size)    # 在本批查询, NN
-            # dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)
-            dists_1, idxs_1 = rank_4(feats_2, feats_2, top_k, num-batch_size)  # 在本批查询
-            # println(feats_2)
+            # dists_1, idxs_1 = rank_2(feats_1, top_k, num-batch_size)    # 在本批查询, NN.jl
+            # dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)        # 在本批查询, NN.jl
+            dists_1, idxs_1 = rank_4(feats_2, feats_2, top_k, num-batch_size)  # 在本批查询, SS.jl
+
             # rank_result = search_obj(collection_name, feats_2, top_k)  # search rank in milvus/fse 
             # dists_2, idxs_2 = prcoess_results_3(rank_result, top_k)
             if num == batch_size
@@ -243,11 +244,11 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 num_1 = batch*batch_size+i
                 n_id_1 = ids[num_1]   # 获取真obj_id
                 node_1 = nodes[n_id_1]
-                c_id_1 = node_1.c_id  # 会传递到nodes吗?会. 并且 未来的也会被下面的union_2 改变c_id
+                c_id_1 = node_1.c_id  # 会传递到nodes吗? 会. 并且 未来的也会被下面的union_2 改变c_id
 
                 quality_1 = -40<node_1.yaw<40  && -20<node_1.pitch<20 && node_1.mask<2
-                # 质量差的丢掉, 放到废片簇0里
-                if quality_1 && node_1.blur < 0.1  # 0.15
+                # 质量差的丢掉, 放到废片簇"0"里
+                if quality_1 == false || node_1.blur < 0.1  # 0.15
                     if n_id_1 in keys(clusters)  # 注意:此处不能用c_id_1 
                         append!(clusters["0"].c_members, pop!(clusters, n_id_1).c_members)  # 按道理只一个member
                         node_1.c_id = "0"   # 只一个member的c_id. 完全的应该是改全部的members
@@ -260,18 +261,16 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 if quality_2_1 && cos_1 < 0.95    # add  0.95
                     push!(keynodes_feats, feats_2[i])   # 代表点
                     push!(keynodes_ids, string(num_1))   # 代表点  node_1.n_id
-                    size_keynotes += 1
                 elseif quality_2_1 && cos_1 >= 0.95  # update
                     push!(keynodes_feats, feats_2[i])   # 代表点
                     push!(keynodes_ids, string(num_1))    # 代表点
-                    push!(del_keynodes_ids, string(idx_y[2]))   # 要被删除的id
+                    push!(del_keynodes_ids, string(idx_y[2]))   # 要被删除的id. 
                 end
 
-                # println(f"batch:\(batch),i:\(i), keynodes_feats:\(size(keynodes_feats)), keynodes_ids:\(size(keynodes_ids))")
+                # println(f"batch:\(batch),i:\(i), keynodes_feats:\(size(keynodes_feats)), del_keynodes_ids:\(size(del_keynodes_ids)), \(size_keynotes)")
 
                 for j in 1: length(idx_y)  # 遍历每个连接
                     id_1 = nodes[n_id_1].c_id 
-
                     idx_j = idx_y[j]
                     n_id_2 = ids[idx_j]   # 也有低质量的, 需要控制下
                     node_2 = nodes[n_id_2]
@@ -294,10 +293,18 @@ function Transducers.next(rf::R_{HAC}, result, input)
             if length(keynodes_ids) > 0
                 # println(f"\(collection_name), keynodes_feats:\(size(keynodes_feats)), keynodes_ids:\(size(keynodes_ids))")
                 insert_obj(collection_name, keynodes_feats, keynodes_ids)   # add  慢
+                size_keynotes += length(keynodes_feats)
             end
             if length(del_keynodes_ids) > 0
-                delete_obj(collection_name, del_keynodes_ids)
+                # del_keynodes_ids 需要去下重
+                del_keynodes_ids_uniqued = unique(del_keynodes_ids)
+                delete_obj(collection_name, del_keynodes_ids_uniqued)
+                size_keynotes -= length(del_keynodes_ids_uniqued)
+            elsef
+                del_keynodes_ids_uniqued = []
             end
+            println(f"keynodes_feats:\(size(keynodes_feats)), del_keynodes_ids:\(size(del_keynodes_ids)), 
+                        \(size(del_keynodes_ids_uniqued)), \(size_keynotes)")
             vectors = []
             # ids = []
         end
@@ -565,12 +572,13 @@ function test_1(input_path, out_path)
     op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
     op_hac = HAC()   # 全局, on all camera
     
-    # aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> op_hac|> collect)
-    aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1)|> op_hac |> collect )
+    aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> op_hac|> collect)
+    # aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1)|> op_hac |> collect )
     # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac    foldl foldxt
     # Folds.reduce((right, eachline(input_json) |> Map(prase_json) |> collect), NondeterministicEx()) 
 
     hac, num, nodes, size_keynotes = aa
+    get_coll_info("repo_test_2")
 
     # 获取结果
     labels = [node.c_id for node in values(nodes)]
@@ -592,26 +600,27 @@ end
 
 
 function test_2()
-    println("nthreads:", Threads.nthreads())
-    xs = randn(1000_000_000)
-    # aa = foldl(+, Map(sin), xs)
-    bb = foldxt(+, Map(sin), xs)
-    print(bb)
+    # println("nthreads:", Threads.nthreads())
+    # xs = randn(1000_000_000)
+    # # aa = foldl(+, Map(sin), xs)
+    # bb = foldxt(+, Map(sin), xs)
+    # print(bb)
+
+    get_coll_info("repo_test_2")
 end
 
 
 function main()
     # input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # input_languang_5_2
     input_path = "/mnt/zy_data/data/languang/input_languang_5_2.json"   # input_new.json
-    out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_5.csv"
+    out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_6.csv"
     test_1(input_path, out_path)
     # eval_1(basename(out_path))   # 评估
 end
 
 
-
 @time main()
-
+# test_2()
 
 
 #=

@@ -20,7 +20,7 @@ cluster: img_sum:882374, id_sum:47934
 avg_pre, avg_rec, fscore, fmi:0.97839, 0.91215, 0.94411, 0.94469
 macro-F1: p_1:0.99898, r_1:0.86710, fscore_1:0.92838
 micro-F1: p_2:0.99287, r_2:0.91018, fscore_2:0.94973
-purity1:0.99898, divergence1:3.26542
+purity1:0.99898, divergence1:3.26542, drop:0.2021
 all_img:1105826, recall:79.79%
 
 2021.5.19
@@ -60,6 +60,18 @@ purity:0.85632, divergence:1.65419, drop:0.0180
 
 改了milvus_api, 快了一倍, 但是结果不太对
 
+2021.5.30
+img_sum:1106092, id_sum:28983, keynotes_sum:74253, 2.6img/id   150756
+used: 15443.8s=257.4min
+size_gt:1106092, size_pred:1105719
+gt: img_sum:754470, id_sum:13703
+cluster: img_sum:754470, id_sum:28980 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.99105, 0.98227, 0, 0.98664, 2.06555
+avg_pre, avg_rec, pairwise-F1, fmi:0.89908, 0.98441, 0.93981, 0.94078
+macro-F1: p_1:0.9973, r_1:0.87213, fscore_1:0.93053
+micro-F1: p_2:0.97077, r_2:0.9546, fscore_2:0.96262
+purity:0.97077, divergence:2.16675, drop:0.3177
+结果还行, 就是太慢了. 
 
 
 ------------------------------------------

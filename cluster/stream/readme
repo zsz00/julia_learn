@@ -9,17 +9,19 @@ online cluster
 
 需要:
 0. 加多维信息   OK
-0. 加同镜,跨镜,多时空阶段聚类,  ***** 
+0. 加同镜,跨镜,多时空阶段聚类, 多op级联 OK ***** 
 1. 加代表点[OK], 代表点更新  OK
 2. 质量加权动态阈值, 加权到knn里
 3. 加knn feat.  OK
 4. 接入kafka数据源, 超内存的数据源, 流式的dataloader. OK
 5. 加窗口
 
+
 加速: 
 1. fse/milvus gpu 
-2. 并行
-3. 多op 级联
+2. 并行op
+3. stream input
+
 
 主要的:
 transducers_3.jl

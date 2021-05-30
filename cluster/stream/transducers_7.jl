@@ -247,8 +247,8 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 c_id_1 = node_1.c_id  # 会传递到nodes吗? 会. 并且 未来的也会被下面的union_2 改变c_id
 
                 quality_1 = -40<node_1.yaw<40  && -20<node_1.pitch<20 && node_1.mask<2
-                # 质量差的丢掉, 放到废片簇"0"里
-                if quality_1 == false || node_1.blur < 0.1  # 0.15
+                # 质量差的丢掉, 放到废片簇"0"里  
+                if quality_1 == false || node_1.blur < 0.05  # 0.15
                     if n_id_1 in keys(clusters)  # 注意:此处不能用c_id_1 
                         append!(clusters["0"].c_members, pop!(clusters, n_id_1).c_members)  # 按道理只一个member
                         node_1.c_id = "0"   # 只一个member的c_id. 完全的应该是改全部的members
@@ -282,15 +282,16 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 # 代表点选择
                 quality_2_1 = quality_1 && node_1.blur >= 0.15
                 cos_1 = length(dists_y) > 1 ? dists_y[2] : 0.0
-                if quality_2_1 && cos_1 < 0.99    # add  0.95
+                cluster_1 = clusters[node_1.c_id]
+                if quality_2_1 && cos_1 <= 1 && cluster_1.c_key_size < 10   # add  0.95
                     push!(keynodes_feats, feats_2[i])   # 代表点
                     push!(keynodes_ids, string(num_1))   # 代表点  node_1.n_id
-                elseif quality_2_1 && cos_1 >= 0.99  # update
+                    cluster_1.c_key_size += 1
+                elseif quality_2_1 && cos_1 >= 0.55 && cluster_1.c_key_size >= 10  # update
                     push!(keynodes_feats, feats_2[i])   # 代表点
                     push!(keynodes_ids, string(num_1))    # 代表点
                     push!(del_keynodes_ids, string(idx_y[2]))   # 要被删除的id. 
                 end
-
             end
   
             if length(keynodes_ids) > 0
@@ -341,7 +342,9 @@ function union_2!(id_1, id_2, nodes, clusters)
                 println(f"union_2: \(idx_) not in nodes")
             end
         end
+        clusters[id_max].c_key_size += clusters[id_min].c_key_size  # 代表点数量
         append!(clusters[id_max].c_members, pop!(clusters, id_min).c_members)  # 合并
+        
     end
 
 end
@@ -578,15 +581,16 @@ function test_1(input_path, out_path)
     # Folds.reduce((right, eachline(input_json) |> Map(prase_json) |> collect), NondeterministicEx()) 
 
     hac, num, nodes, size_keynotes = aa
-    get_coll_info("repo_test_2")
-
+    coll_info = get_coll_info("repo_test_2")
+    datetime_now = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS")
+    used_time = (Dates.now() - t1).value/1000
+    println(f"\(datetime_now), used:\%.1f(used_time)s=\%.1f(used_time/60)min")
+    
     # 获取结果
     labels = [node.c_id for node in values(nodes)]
-    t2 = Dates.now()
     id_sum = length(Set(labels))
+    size_keynotes = coll_info["count"]
     println(f"img_sum:\(length(labels)), id_sum:\(id_sum), keynotes_sum:\(size_keynotes), \%.1f(size_keynotes/id_sum)img/id")
-    used_time = (t2 - t1).value/1000
-    println(f"used: \%.1f(used_time)s=\%.1f(used_time/60)min")
     
     # 结果保存和评估
     f_out = open(out_path, "w")
@@ -600,20 +604,18 @@ end
 
 
 function test_2()
-    # println("nthreads:", Threads.nthreads())
+    println("nthreads:", Threads.nthreads())
     # xs = randn(1000_000_000)
     # # aa = foldl(+, Map(sin), xs)
     # bb = foldxt(+, Map(sin), xs)
     # print(bb)
-
-    get_coll_info("repo_test_2")
 end
 
 
 function main()
     # input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # input_languang_5_2
     input_path = "/mnt/zy_data/data/languang/input_languang_5_2.json"   # input_new.json
-    out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_6.csv"
+    out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_8.csv"
     test_1(input_path, out_path)
     # eval_1(basename(out_path))   # 评估
 end

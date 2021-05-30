@@ -628,10 +628,42 @@ macro-F1: p_1:0.99262, r_1:0.99271, fscore_1:0.99267
 micro-F1: p_2:0.98253, r_2:0.99767, fscore_2:0.99004
 purity:0.98253, divergence:1.14135, drop:0.2935
 
+-----------------
+代表点更新   2021.5.29
+quality_2_1 blur>0.15, cos_1:0.95
+img_sum:64182, id_sum:959, keynotes_sum:4149, 4.3img/id  7967
+used: 219.9s=3.7min
+size_gt:64182, size_pred:63720
+gt: img_sum:44989, id_sum:664
+cluster: img_sum:44989, id_sum:956 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98946, 0.98637, 0, 0.98791, 0.98471
+avg_pre, avg_rec, pairwise-F1, fmi:0.97929, 0.99057, 0.9849, 0.98492
+macro-F1: p_1:0.99687, r_1:0.92925, fscore_1:0.96188
+micro-F1: p_2:0.98904, r_2:0.97908, fscore_2:0.98404
+purity:0.98904, divergence:1.60693, drop:0.2940
 
+quality_2_1 blur>0.15, cos_1:0.99
+img_sum:64182, id_sum:956, keynotes_sum:11738, 12.3img/id   12548
+used: 214.3s=3.6min
+size_gt:64182, size_pred:63709
+gt: img_sum:44987, id_sum:663
+cluster: img_sum:44987, id_sum:953 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98949, 0.98701, 0, 0.98825, 0.98556
+avg_pre, avg_rec, pairwise-F1, fmi:0.97934, 0.99222, 0.98574, 0.98576
+macro-F1: p_1:0.99687, r_1:0.92912, fscore_1:0.9618
+micro-F1: p_2:0.98906, r_2:0.97988, fscore_2:0.98445
+purity:0.98906, divergence:1.60332, drop:0.2939
 
-
-
+img_sum:64182, id_sum:959, keynotes_sum:11725, 12.2img/id    12543
+used: 223.8s=3.7min
+size_gt:64182, size_pred:63709
+gt: img_sum:44987, id_sum:663
+cluster: img_sum:44987, id_sum:956 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98949, 0.98685, 0, 0.98817, 0.9855
+avg_pre, avg_rec, pairwise-F1, fmi:0.97934, 0.99209, 0.98568, 0.9857
+macro-F1: p_1:0.99688, r_1:0.92874, fscore_1:0.9616
+micro-F1: p_2:0.98906, r_2:0.97966, fscore_2:0.98434
+purity:0.98906, divergence:1.60784, drop:0.2939
 
 
 

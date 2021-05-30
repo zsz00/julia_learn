@@ -91,10 +91,11 @@ function insert_obj(collection_name, vectors, ids)
             )
     body = JSON3.write(body_dict)
     # println(body)
-    insert_obj = commen_api("collections/$collection_name/vectors", "POST", body)  # insert_obj, 不是实时commit的
-    # println(f"\(ids), \(insert_obj)")
+    insert_objs = commen_api("collections/$collection_name/vectors", "POST", body)  # insert_obj, 不是实时commit的
+    # println(f"""insert: \(length(ids)), \(length(insert_objs["ids"]))""")
+    # println(insert_objs["ids"])
     flush_coll(collection_name)  # 频繁flush会很慢. 所以要batch的add
-
+    # return insert_objs["ids"]
 end
 
 function insert_obj_batch(collection_name, vectors, ids)
@@ -130,8 +131,8 @@ end
 function delete_obj(collection_name, ids)
     body_dict = Dict("delete" => Dict("ids" => ids))
     body = JSON3.write(body_dict)
-    delete_obj = commen_api("collections/$collection_name/vectors", "PUT", body)
-    # println(f"delete: \(ids), \(delete_obj)")
+    delete_objs = commen_api("collections/$collection_name/vectors", "PUT", body)
+    # println(f"delete: \(length(ids)), \(length(delete_objs))")
 end
 
 function search_obj(collection_name, vectors, top_k)
@@ -350,7 +351,7 @@ function test_2()
 end
 
 
-test_1()
+# test_1()
 # @time test_2()
 
 

@@ -256,17 +256,6 @@ function Transducers.next(rf::R_{HAC}, result, input)
                     end
                 end
 
-                quality_2_1 = quality_1 && node_1.blur >= 0.1
-                cos_1 = length(dists_y) > 1 ? dists_y[2] : 0.0
-                if quality_2_1 && cos_1 < 0.95    # add  0.95
-                    push!(keynodes_feats, feats_2[i])   # 代表点
-                    push!(keynodes_ids, string(num_1))   # 代表点  node_1.n_id
-                elseif quality_2_1 && cos_1 >= 0.95  # update
-                    push!(keynodes_feats, feats_2[i])   # 代表点
-                    push!(keynodes_ids, string(num_1))    # 代表点
-                    push!(del_keynodes_ids, string(idx_y[2]))   # 要被删除的id. 
-                end
-
                 # println(f"batch:\(batch),i:\(i), keynodes_feats:\(size(keynodes_feats)), del_keynodes_ids:\(size(del_keynodes_ids)), \(size_keynotes)")
 
                 for j in 1: length(idx_y)  # 遍历每个连接
@@ -289,22 +278,33 @@ function Transducers.next(rf::R_{HAC}, result, input)
                         union_2!(id_1, id_2, nodes, clusters)
                     end
                 end
+
+                # 代表点选择
+                quality_2_1 = quality_1 && node_1.blur >= 0.15
+                cos_1 = length(dists_y) > 1 ? dists_y[2] : 0.0
+                if quality_2_1 && cos_1 < 0.99    # add  0.95
+                    push!(keynodes_feats, feats_2[i])   # 代表点
+                    push!(keynodes_ids, string(num_1))   # 代表点  node_1.n_id
+                elseif quality_2_1 && cos_1 >= 0.99  # update
+                    push!(keynodes_feats, feats_2[i])   # 代表点
+                    push!(keynodes_ids, string(num_1))    # 代表点
+                    push!(del_keynodes_ids, string(idx_y[2]))   # 要被删除的id. 
+                end
+
             end
+  
             if length(keynodes_ids) > 0
                 # println(f"\(collection_name), keynodes_feats:\(size(keynodes_feats)), keynodes_ids:\(size(keynodes_ids))")
                 insert_obj(collection_name, keynodes_feats, keynodes_ids)   # add  慢
                 size_keynotes += length(keynodes_feats)
             end
             if length(del_keynodes_ids) > 0
-                # del_keynodes_ids 需要去下重
+                # del_keynodes_ids 需要去重
                 del_keynodes_ids_uniqued = unique(del_keynodes_ids)
                 delete_obj(collection_name, del_keynodes_ids_uniqued)
                 size_keynotes -= length(del_keynodes_ids_uniqued)
-            elsef
-                del_keynodes_ids_uniqued = []
             end
-            println(f"keynodes_feats:\(size(keynodes_feats)), del_keynodes_ids:\(size(del_keynodes_ids)), 
-                        \(size(del_keynodes_ids_uniqued)), \(size_keynotes)")
+            println(f"keynodes_feats:\(size(keynodes_feats)), del_keynodes_ids:\(size(del_keynodes_ids)), \(size_keynotes)")
             vectors = []
             # ids = []
         end

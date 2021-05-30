@@ -69,7 +69,6 @@ function rank_4(gallery, query, top_k, n)
 
     index = ExhaustiveSearch(NormalizedCosineDistance(), gallery)   # gallery是Vectors,不支持增量add
     out = [search(index, q, KnnResult(top_k)) for q in query]
-
     # 后处理
     dists, idxs = prcoess_ss(out, top_k)  # 解析
     idxs = idxs .+ n

@@ -20,7 +20,7 @@ function test_4()
         feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
     else
         # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
-        feats = npzread("/data/zhangyong/data/longhu_1/sorted_2/feats.npy")
+        feats = npzread("/mnt/zy_data/data/longhu_1/sorted_2/feats.npy")
     end
     
     feats = convert(Matrix, feats[1:195000, 1:end])

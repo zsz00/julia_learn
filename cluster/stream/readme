@@ -28,8 +28,13 @@ transducers_3.jl
 transducers_4.jl
 transducers_7.jl
 
+----------------------------------------------------------------------
 
+transducers.jl 的作用: 
+1. 有状态,更stream化. 
+2. 有并行作用. 实际不行
 
+可以做个不用transducers的版本. 
 
 
 

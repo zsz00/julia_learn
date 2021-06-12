@@ -1,7 +1,7 @@
 # online cluster base on Transducers.   2021.1.30, 2021.3, 2021.5
-using NPZ, JLD2, FileIO
 using Transducers
 using Transducers: R_, start, next, complete, inner, xform, wrap, unwrap, wrapping
+using NPZ, JLD2, FileIO
 using Strs, JSON3, Base64
 using NearestNeighbors, Distances
 using LinearAlgebra, Statistics
@@ -9,7 +9,6 @@ using PyCall
 using ThreadsX
 using Folds, FoldsThreads
 using BangBang  # for `push!!`
-using SimilaritySearch
 include("milvus_api.jl")
 include("keyby.jl")
 include("ann.jl")
@@ -209,7 +208,6 @@ function Transducers.next(rf::R_{HAC}, result, input)
             del_keynodes_ids = []
             println(f"======:\(num), \(size(vectors))")
 
-            # query knn
             # query 
             gallery = vectors  # vcat((hcat(i...) for i in vectors)...)  # Vectors -> Matrix
             query = gallery
@@ -231,7 +229,7 @@ function Transducers.next(rf::R_{HAC}, result, input)
             else
                 dists_2, idxs_2 = search_obj_batch(collection_name, feats_2, top_k)
             end
-            println(f"\(size(dists_1)), \(size(dists_2))")
+            # println(f"\(size(dists_1)), \(size(dists_2))")
             dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2)
             idxs = size(idxs_2)[1] == 0 ? idxs_1 : hcat(idxs_1, idxs_2)
             # println(f"===:\(num), \(size(dists)), \(size(idxs))")
@@ -246,12 +244,12 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 node_1 = nodes[n_id_1]
                 c_id_1 = node_1.c_id  # 会传递到nodes吗? 会. 并且 未来的也会被下面的union_2 改变c_id
 
-                quality_1 = -40<node_1.yaw<40  && -20<node_1.pitch<20 && node_1.mask<2
+                quality_1 = -40<node_1.yaw<40  && -30<node_1.pitch<30 && node_1.mask<2
                 # 质量差的丢掉, 放到废片簇"0"里  
-                if quality_1 == false || node_1.blur < 0.05  # 0.15
+                if quality_1 == false || node_1.blur < 0.1  # 0.1
                     if n_id_1 in keys(clusters)  # 注意:此处不能用c_id_1 
                         append!(clusters["0"].c_members, pop!(clusters, n_id_1).c_members)  # 按道理只一个member
-                        node_1.c_id = "0"   # 只一个member的c_id. 完全的应该是改全部的members
+                        nodes[n_id_1].c_id = "0"   # 只一个member的c_id. 完全的应该是改全部的members
                         continue
                     end
                 end
@@ -266,7 +264,7 @@ function Transducers.next(rf::R_{HAC}, result, input)
                     id_2 = node_2.c_id
                     cos_1 = dists_y[j]  # 相似度
                     if !(id_1 in keys(clusters))
-                        println(f"id_1: batch:\(batch),i:\(i),j:\(j), id_1:\(id_1), \(node_1.blur),\(node_1.n_id)")
+                        println(f"id_1: batch:\(batch),i:\(i),j:\(j), id_1:\(id_1), \(node_1.blur), \(node_1.n_id)")
                         continue
                     end
                     if !(id_2 in keys(clusters))
@@ -280,17 +278,24 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 end
 
                 # 代表点选择
-                quality_2_1 = quality_1 && node_1.blur >= 0.15
+                node_1 = nodes[n_id_1]
+                quality_2_1 = quality_1 && node_1.blur >= 0.1
                 cos_1 = length(dists_y) > 1 ? dists_y[2] : 0.0
+                
                 cluster_1 = clusters[node_1.c_id]
-                if quality_2_1 && cos_1 <= 1 && cluster_1.c_key_size < 10   # add  0.95
-                    push!(keynodes_feats, feats_2[i])   # 代表点
-                    push!(keynodes_ids, string(num_1))   # 代表点  node_1.n_id
-                    cluster_1.c_key_size += 1
-                elseif quality_2_1 && cos_1 >= 0.55 && cluster_1.c_key_size >= 10  # update
-                    push!(keynodes_feats, feats_2[i])   # 代表点
-                    push!(keynodes_ids, string(num_1))    # 代表点
-                    push!(del_keynodes_ids, string(idx_y[2]))   # 要被删除的id. 
+                if quality_2_1
+                    if cos_1 <= 1 && cluster_1.c_key_size < 10   # add  0.95
+                        push!(keynodes_feats, feats_2[i])   # 代表点
+                        push!(keynodes_ids, string(num_1))   # 代表点  node_1.n_id
+                        cluster_1.c_key_size += 1
+                    elseif cos_1 >= 0.55 && cluster_1.c_key_size >= 10
+                        node_2 = nodes[ids[idx_y[2]]]
+                        if node_1.blur>node_2.blur  # update
+                            push!(keynodes_feats, feats_2[i])   # 代表点
+                            push!(keynodes_ids, string(num_1))    # 代表点
+                            push!(del_keynodes_ids, string(idx_y[2]))   # 要被删除的id. 
+                        end
+                    end
                 end
             end
   
@@ -305,7 +310,7 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 delete_obj(collection_name, del_keynodes_ids_uniqued)
                 size_keynotes -= length(del_keynodes_ids_uniqued)
             end
-            println(f"keynodes_feats:\(size(keynodes_feats)), del_keynodes_ids:\(size(del_keynodes_ids)), \(size_keynotes)")
+            # println(f"keynodes_feats:\(size(keynodes_feats)), del_keynodes_ids:\(size(del_keynodes_ids)), \(size_keynotes)")
             vectors = []
             # ids = []
         end
@@ -541,7 +546,7 @@ function eval_1(file_name)
     import numpy as np
     import pandas as pd
     sys.path.insert(0, "")
-    sys.path.insert(0, "..")
+    sys.path.insert(0, "cluster")
     from utils import eval_cluster
 
 
@@ -580,7 +585,7 @@ function test_1(input_path, out_path)
     # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac    foldl foldxt
     # Folds.reduce((right, eachline(input_json) |> Map(prase_json) |> collect), NondeterministicEx()) 
 
-    hac, num, nodes, size_keynotes = aa
+    hac, num, nodes, size_keynotes_stat = aa
     coll_info = get_coll_info("repo_test_2")
     datetime_now = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS")
     used_time = (Dates.now() - t1).value/1000
@@ -590,7 +595,7 @@ function test_1(input_path, out_path)
     labels = [node.c_id for node in values(nodes)]
     id_sum = length(Set(labels))
     size_keynotes = coll_info["count"]
-    println(f"img_sum:\(length(labels)), id_sum:\(id_sum), keynotes_sum:\(size_keynotes), \%.1f(size_keynotes/id_sum)img/id")
+    println(f"img_sum:\(length(labels)), id_sum:\(id_sum), keynotes_sum_stat:\(size_keynotes_stat), keynotes_sum:\(size_keynotes), \%.1f(size_keynotes/id_sum)img/id")
     
     # 结果保存和评估
     f_out = open(out_path, "w")
@@ -639,10 +644,6 @@ TODO:
 5. 加窗口
 6. 并行flods
 
-加速: 
-1. fse/milvus gpu 
-2. 并行
-3. 多op 级联
 ----------------------------------------
 input_data |> spacetime1_cluster(json) |> spacetime2_cluster(nodes, clsuters) |> global_hac(nodes, clsuters) |> output_data
 
@@ -654,6 +655,7 @@ eachline(input_json) |> Map(prase_json) |> GroupBy((x -> x.device_id), op1) |> o
 问题: 
 1. 没有可add的rank. 慢, 改为faiss[难]
 2. foldxt 并行不起作用, 因为不支持eachline
+3. 加了同镜, 会有问题.  2021.5.31
 
 milvus add with ids ,  OK
 有问题(c_id 找不到), 结果不能回归. 解决了此bug. ok

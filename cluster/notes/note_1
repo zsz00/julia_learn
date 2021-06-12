@@ -690,6 +690,7 @@ micro-F1: p_2:0.98906, r_2:0.97913, fscore_2:0.98407
 purity:0.98906, divergence:1.60935, drop:0.2939
 pddk: 好
 
+blur >= 0.1
 2021-05-30 18:15:25, used: 226.5s=3.8min
 img_sum:64182, id_sum:1163, keynotes_sum:3346, 2.9img/id   7750
 size_gt:64182, size_pred:63881
@@ -701,4 +702,39 @@ macro-F1: p_1:0.99637, r_1:0.91476, fscore_1:0.95383
 micro-F1: p_2:0.98733, r_2:0.97332, fscore_2:0.98027
 purity:0.98733, divergence:1.88071, drop:0.2549
 
+blur >= 0.05,  blur >= 0.1
+2021-05-30 18:42:09, used:220.3s=3.7min
+img_sum:64182, id_sum:1162, keynotes_sum:7703, 6.6img/id
+size_gt:64182, size_pred:63881
+gt: img_sum:47596, id_sum:679
+cluster: img_sum:47596, id_sum:1160 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98829, 0.98287, 0, 0.98557, 0.98387
+avg_pre, avg_rec, pairwise-F1, fmi:0.97596, 0.99232, 0.98407, 0.98411
+macro-F1: p_1:0.99637, r_1:0.91502, fscore_1:0.95397
+micro-F1: p_2:0.98733, r_2:0.97351, fscore_2:0.98037
+purity:0.98733, divergence:1.87923, drop:0.2549
+
+质量高的更新质量低的
+2021-05-31 16:43:16, used:233.8s=3.9min
+img_sum:64182, id_sum:682, keynotes_sum_stat:2703, keynotes_sum:13661, 20.0img/id
+size_gt:64182, size_pred:63868
+gt: img_sum:47611, id_sum:682
+cluster: img_sum:47611, id_sum:681 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.97973, 0.99642, 0, 0.988, 0.93717
+avg_pre, avg_rec, pairwise-F1, fmi:0.88587, 0.99664, 0.938, 0.93962
+macro-F1: p_1:0.99376, r_1:0.98725, fscore_1:0.9905
+micro-F1: p_2:0.96116, r_2:0.99605, fscore_2:0.9783
+purity:0.96116, divergence:1.18035, drop:0.254
+
+blur >= 0.1,  blur >= 0.1
+2021-05-31 17:10:07, used:228.9s=3.8min
+img_sum:64182, id_sum:677, keynotes_sum_stat:3335, keynotes_sum:15874, 23.4img/id
+size_gt:64182, size_pred:63977
+gt: img_sum:47480, id_sum:694
+cluster: img_sum:47480, id_sum:676 
+有监督: 纯度, 散度, nmi, v_measure, ari:0.98139, 0.99689, 0, 0.98908, 0.94162
+avg_pre, avg_rec, pairwise-F1, fmi:0.89363, 0.99675, 0.94238, 0.94378
+macro-F1: p_1:0.99355, r_1:0.98995, fscore_1:0.99175
+micro-F1: p_2:0.96384, r_2:0.9969, fscore_2:0.98009
+purity:0.96384, divergence:1.15562, drop:0.2579
 

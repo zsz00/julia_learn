@@ -164,7 +164,7 @@ function search_obj_batch(collection_name, vectors, top_k)
     # start = 0
     dists = zeros(Float32, (size_vec, top_k))
     idxs = zeros(Int32, (size_vec, top_k))
-    println(f"\(bs), \(batch), \(size_vec)")
+    # println(f"\(bs), \(batch), \(size_vec)")
     @sync for i in 1:batch 
         @async begin   # 乱序的
             start = (i-1)*bs
@@ -176,7 +176,7 @@ function search_obj_batch(collection_name, vectors, top_k)
             # println(rank_result)
             dist, idx = prcoess_results_3(rank_result, top_k)  # 解析rank结果
             # # 解析比查询还慢
-            println(f"\(i), \(bs), \((i-1)*bs+1): \((i-1)*bs+bs), \(size(dist)), \(size(idx))")
+            # println(f"\(i), \(bs), \((i-1)*bs+1): \((i-1)*bs+bs), \(size(dist)), \(size(idx))")
             dists[(i-1)*bs+1:(i-1)*bs+bs, :] = dist
             idxs[(i-1)*bs+1:(i-1)*bs+bs, :] = idx
         end

@@ -4,15 +4,22 @@ using DataFrames
 
 
 # EventListener settings
-myauth = GitHub.authenticate("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")
+myauth = GitHub.authenticate("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")
 # mysecret = ENV["MY_SECRET"]
 
-# lang_repo = Dict("julia"=>"JuliaLang/julia")
-# results, page_data = GitHub.stargazers(lang_repo["julia"]; auth = myauth)
-# println(length(results))
+lang_repo = Dict("julia"=>"JuliaLang/julia")
+repo = GitHub.Repo(lang_repo["julia"])
+results = GitHub.repo(repo; auth = myauth)
+
+# stat = Status(results.id)
+# println(stat)
+# results = GitHub.stats(repo, "commits", auth=myauth)
+# results, page_data = GitHub.commits(repo, auth=myauth)
+
+println(results)
+
 
 function commen_api(component, method, body="", show=true)
-    # api_url = "tcp://192.168.3.199:19530/$component"   # 19530  19121 
     api_url = "https://api.github.com/$component/q=language:assembly&stars>100&sort=stars&order=desc"
     headers = Dict("Authorization"=>"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",
                    "Accept"=>"application/vnd.github.v3+json")  # , "Content-Type" => "application/json"
@@ -30,6 +37,7 @@ function commen_api(component, method, body="", show=true)
     return data
 end
 
+
 function search()
     component = "search/repositories"
     method = "GET"
@@ -40,4 +48,4 @@ function search()
 end
 
 
-search()
+# search()

@@ -12,7 +12,7 @@ include("milvus_api.jl")   # milvus_api_2
 
 
 function test_4()
-    # cluster online   2020.10.18
+    # cluster online   2020.10.18, 2021.6.13
     println("test_4()")
     # 加载数据
     t0 = Dates.now()
@@ -47,6 +47,7 @@ function test_4()
 
 end
 
+
 # 自定义类型, 结构体
 mutable struct ClusterOp <: OnlineStat{Vector{Float32}}
     top_k::Int32
@@ -63,7 +64,7 @@ mutable struct ClusterOp <: OnlineStat{Vector{Float32}}
 end
 
 
-# 重构 fit方法, 实现op功能
+# 重构fit方法, 实现op功能
 function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
     o.num += 1
     # feat_1 = transform(feature)   # 反序列化
@@ -190,13 +191,11 @@ test_4()
 
 
 #=
-2020.10, 2020.11
+2020.10, 2020.11, 2021.6.13
 JULIA_NUM_THREADS=4
 ---------------------------------
-基于onlinestats_1_2.jl
+2021.6.13 分析感觉 onlinestats 做这个更合理
 
-可以做一些事, 虽然不够完善.
- 
 
 TODO:
 0. 加同镜,跨镜 多时空阶段聚类

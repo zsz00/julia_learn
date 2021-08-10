@@ -5,7 +5,7 @@ using NPZ, JLD2, FileIO
 using Strs, JSON3, Base64
 using NearestNeighbors, Distances
 using LinearAlgebra, Statistics
-using PyCall
+using PyCall, BenchmarkTools
 using ThreadsX
 using Folds, FoldsThreads
 using BangBang  # for `push!!`
@@ -154,6 +154,7 @@ struct HAC <: Transducer
 end
 
 HAC() = HAC(100, 0.5, 100)  # 初始化结构体
+coll_name = creat_collection("repo_test_2", 384)
 
 function Transducers.start(rf::R_{HAC}, result)  
     hac = xform(rf)
@@ -161,7 +162,7 @@ function Transducers.start(rf::R_{HAC}, result)
     nodes = Dict()     # 节点信息.  最好只存代表点
     clusters = Dict("0"=>Cluster("0", 0, 0, [], 0, 0))    # 簇信息 
     tracks = Dict()    # 跟踪信息
-    collection_name = creat_collection("repo_test_2", 384)   # init index
+    collection_name = coll_name  # creat_collection("repo_test_2", 384)   # init index
     vectors = []  # 把一批的feat存到状态里. 为batch加的
     ids = []
     size_keynotes = 0      # 代表点数量
@@ -575,15 +576,16 @@ function test_1(input_path, out_path)
     println("nthreads:", Threads.nthreads())
     # load data
     input_json = open(input_path)
+    json_data = collect(eachline(input_json))
     t1 = Dates.now()
     # stream pipeline
     op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
     op_hac = HAC()   # 全局, on all camera
-    
-    aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> op_hac|> collect)
+    aa = Transducers.foldl(right, json_data |> Map(prase_json) |> op_hac |> collect)
     # aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1)|> op_hac |> collect )
     # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac    foldl foldxt
-    # Folds.reduce((right, eachline(input_json) |> Map(prase_json) |> collect), NondeterministicEx()) 
+    # aa = Folds.reduce((right, json_data |> Map(prase_json) |> op_hac |> tcollect), NondeterministicEx()) 
+    # collect   reduce   tcollect
 
     hac, num, nodes, size_keynotes_stat = aa
     coll_info = get_coll_info("repo_test_2")
@@ -607,6 +609,20 @@ function test_1(input_path, out_path)
     eval_1(file_name)   # 评估
 end
 
+function test_1_2(input_path, out_path)
+    # cluster online   2021.1.16
+    println("test_1_2()")
+    println("nthreads:", Threads.nthreads())
+    # load data
+    input_json = open(input_path)
+    json_data = collect(eachline(input_json))
+    # json_data = eachline(input_json)
+    # stream pipeline
+    # op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
+    op_hac = HAC()   # 全局, on all camera
+    Transducers.foldxt(right, json_data |> Map(prase_json) |> op_hac |> tcollect)
+    # foldl  foldxt  tcollect
+end
 
 function test_2()
     println("nthreads:", Threads.nthreads())
@@ -621,13 +637,15 @@ function main()
     # input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # input_languang_5_2
     input_path = "/mnt/zy_data/data/languang/input_languang_5_2.json"   # input_new.json
     out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_8.csv"
-    test_1(input_path, out_path)
+    # test_1(input_path, out_path)
+    test_1_2(input_path, out_path)
     # eval_1(basename(out_path))   # 评估
 end
 
 
 @time main()
 # test_2()
+
 
 
 #=
@@ -640,9 +658,9 @@ TODO:
 1. 加代表点[OK], 代表点更新  OK
 2. 质量加权动态阈值, 加权到knn里
 3. 加knn feat.  OK
-4. 接入kafka数据源, 超内存的数据源, 流式的dataloader. OK. 
+4. 接入kafka数据源, 超内存的数据源, 流式的dataloader. OK
 5. 加窗口
-6. 并行flods
+6. 并行flods    不通
 
 ----------------------------------------
 input_data |> spacetime1_cluster(json) |> spacetime2_cluster(nodes, clsuters) |> global_hac(nodes, clsuters) |> output_data
@@ -671,7 +689,7 @@ used: 2113.4s=35.2min   foldxt
 used: 313.9s=5.2min  foldl  0.21机器,milvus也在这里
 used: 336.5s=5.6min  foldxt 0.21机器,milvus也在这里, nthreads=40, cpu,gpu没变. 
 
-
+248.5s=4.1min
 
 =#
 

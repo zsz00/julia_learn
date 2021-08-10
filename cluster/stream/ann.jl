@@ -1,5 +1,5 @@
 # ann, similarity search. 2021.5.22
-using NPZ, JLD2, FileIO
+using NPZ, JLD2, FileIO, Dates
 using Strs, JSON3
 using NearestNeighbors, Distances
 using SimilaritySearch
@@ -64,7 +64,7 @@ function rank_3(gallery, query, ids, top_k)
 end
 
 function rank_4(gallery, query, top_k, n)
-    # base SimilaritySearch.jl
+    # base SimilaritySearch.jl.  不成熟的库
     # feats = matix2Vectors(feats)
 
     index = ExhaustiveSearch(NormalizedCosineDistance(), gallery)   # gallery是Vectors,不支持增量add
@@ -82,19 +82,27 @@ function prcoess_ss(results, topk)
     idxs = zeros(Int32, (size, topk))
     for (i, p) in enumerate(results)
         for (j, pp) in enumerate(p)
-            # println(f"\(i), \(j), \(pp.id), \(pp.dist)")
-            dists[i, j] = pp.dist
-            idxs[i, j] = pp.id
+            # println(f"\(i), \(j), \(pp[1]), \(pp[2])")
+            idxs[i, j] = pp[1]
+            dists[i, j] = pp[2]
         end
     end
     dists = 1.0 .- dists
     return dists, idxs
 end
 
+function matix2Vectors(b)
+    c = []
+    for i in 1:size(b)[1]
+        c_1 = Array{Float32, 1}(b[i,:])
+        push!(c, c_1)
+    end
+    return c
+end
 
 function test_ss()
-    # 基于 SimilaritySearch.jl, 但是结果不准确, 还要查出 n*m,再取topk.
-    feats = npzread("/mnt/zy_data/data/longhu_1/feats.npy")
+    # 基于 SimilaritySearch.jl, n*m,再取topk.
+    feats = npzread("/mnt/zy_data/data/longhu_1/sorted_2/feats.npy")
     # feats = convert(Matrix, feats[1:end, 1:end])
     feats = matix2Vectors(feats)
 

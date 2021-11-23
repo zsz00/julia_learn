@@ -9,9 +9,9 @@ using LinearAlgebra
 
 
 function commen_api(component, method, body="", show=false)
-    # api_url = "tcp://192.168.3.199:19530/$component"   # 19530  19121 
-    # api_url = "http://192.168.3.199:19121/$component"
-    api_url = "http://10.9.0.21:19121/$component"
+    api_url = "tcp://192.168.3.199:19530/$component"   # 19530  19121 
+    # api_url = "http://192.168.3.199:19121/$component"  # 这docker有问题,因为cuda版本
+    api_url = "http://10.9.1.8:19121/$component"
     headers = Dict("accept"=>"application/json")  # , "Content-Type" => "application/json"
 
     response = HTTP.request(method, api_url, headers=headers, body=body)
@@ -147,8 +147,7 @@ function search_obj(collection_name, vectors, top_k)
                 )
 
     body = JSON3.write(body_dict)
-    
-    rank_result = commen_api("collections/$collection_name/vectors", "PUT", body)  # 创建collection
+    rank_result = commen_api("collections/$collection_name/vectors", "PUT", body)
     # println(rank_result)
     return rank_result
 end
@@ -166,14 +165,14 @@ function search_obj_batch(collection_name, vectors, top_k)
     idxs = zeros(Int32, (size_vec, top_k))
     # println(f"\(bs), \(batch), \(size_vec)")
     @sync for i in 1:batch 
-        @async begin   # 乱序的
+        Threads.@spawn begin   # 乱序的
             start = (i-1)*bs
             # if i == batch
             #     bs = length(vectors) - (batch-1)*bs     
             # end
-        
-            rank_result = search_obj(collection_name, vectors[(i-1)*bs+1:(i-1)*bs+bs], top_k)
-            # println(rank_result)
+            feats = vectors[(i-1)*bs+1:(i-1)*bs+bs]
+            # println(f"\(i), \(bs), \((i-1)*bs+1): \((i-1)*bs+bs)")
+            rank_result = search_obj(collection_name, feats, top_k)
             dist, idx = prcoess_results_3(rank_result, top_k)  # 解析rank结果
             # # 解析比查询还慢
             # println(f"\(i), \(bs), \((i-1)*bs+1): \((i-1)*bs+bs), \(size(dist)), \(size(idx))")
@@ -262,7 +261,6 @@ function prcoess_results_2(results, topk)
 
 end
 
-
 function matix2Vectors(b)
     c = []
     for i in 1:size(b)[1]
@@ -271,7 +269,6 @@ function matix2Vectors(b)
     end
     return c
 end
-
 
 
 function test_1()
@@ -302,6 +299,7 @@ function test_1()
 end
 
 function test_2()
+    # 测试 并行
     println("test_2()")
     println("nthreads:", Threads.nthreads())
     t0 = Dates.now()
@@ -309,15 +307,15 @@ function test_2()
         feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
     else
         # feats = npzread("/data/zhangyong/data/longhu_1/sorted_2/feats.npy")
-        feats = npzread("/mnt/zy_data/data/longhu_1/feats.npy")
+        feats = npzread("/mnt/zy_data/data/longhu_1/sorted_2/feats.npy")
     end
 
-    feats = convert(Matrix, feats[1:195000, 1:end])
+    feats = convert(Matrix, feats[1:100000, 1:end])
     size_1 = size(feats)[1]
     t1 = Dates.now()
     println("used: ", (t1 - t0).value/1000, "s, ", size_1)
     # println(size(feats))
-    collection_name = "test1"
+    collection_name = "test2"
     creat_collection(collection_name, 384)  # 384
     # get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
     # println(get_coll_info)
@@ -334,20 +332,20 @@ function test_2()
         query_vectors = vectors
         ids = [string(j) for j in start+1:start+bs]
         # println(size(qurey_vectors), size(ids))
-        # insert_obj(collection_name, vectors, ids)
-        insert_obj_batch(collection_name, vectors, ids)   # add  insert_obj
-        dists, idxs = search_obj_batch(collection_name, query_vectors, top_k)
+        insert_obj(collection_name, vectors, ids)
+        # insert_obj_batch(collection_name, vectors, ids)   # add  insert_obj
+        # dists, idxs = search_obj_batch(collection_name, query_vectors, top_k)
 
         # insert_obj(collection_name, vectors, ids)
         # rank_result = search_obj(collection_name, query_vectors, top_k)  # rank
         # dists, idxs = prcoess_results_3(rank_result, top_k)  # 解析rank结果
 
-        if i == 8
-            # println(rank_result)
-            println(dists[1:10, 1:5])
-            # println(idxs)
-            break
-        end
+        # if i == 8
+        #     # println(rank_result)
+        #     println("\n", dists[1:10, 1:5])
+        #     # println(idxs)
+        #     break
+        # end
         start += bs
     end
     println("used: ", (Dates.now() - t1).value/1000, "s")
@@ -355,20 +353,15 @@ end
 
 
 # test_1()
-# @time test_2()
+@time test_2()
 
 
 
 #=
 export JULIA_NUM_THREADS=4
 
-v0.10
+v0.10.5
 有两种方式:1.julia写RESTful API调用, 2.调用python的
-1. 创建, 删除 coll
-2. add
-3. search
-4. remove
-
 https://github.com/milvus-io/milvus/tree/0.10.5/core/src/server/web_impl
 
 速度:  
@@ -377,13 +370,17 @@ test_2()   100000, add+search
 2.5min  bs=1000
 99s     bs=1000, sync
 
+跨机器调用:  search
+952.677s    40 
+585.162s    4
+
 2021.4.29
 195299,  add+search  
 base: faiss  10s
-used: 312.649s=5.2min  bs=1000
-used: 207.413s=3.4min  bs=1000 sync
-结论: 就是网络调用慢, 需要加并行IO. 没快很多. 
-没快很多: cpu使用最高100%, 达不到400%, 为什么? 
+used: 312.649s=5.2min  bs=1000 no async
+used: 207.413s=3.4min  bs=1000 async
+结论: 就是网络调用慢, 需要加并行IO. 
+加了没快很多: cpu使用最高100%, 达不到400%, 为什么? 
 
 i == 8: println(dists[1:10, 1:5])
 base

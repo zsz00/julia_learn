@@ -1,4 +1,4 @@
-# milvus api. v0.11     2020.11.4
+# milvus api. v2.0     2021.11.22
 using HTTP, JSON3
 using NPZ
 using Dates, BenchmarkTools
@@ -68,14 +68,15 @@ function creat_collection(collection_name, dim)
     body = JSON3.write(body_dict)
     println(body)
     try
-        creat_coll = commen_api("collections", "POST", body)  # 创建collection
+        creat_coll = commen_api("createCollection", "POST", body)  # 创建collection
         println(creat_coll)
     catch e
         println("create coll error. ", e)
     end
-    
+    body_dict = Dict("collection_name" => collection_name)
+    body = JSON3.write(body_dict)
     # get_colls = commen_api("collections", "GET", "")  # 获取到所有collections的信息
-    get_coll_info = commen_api("collections/$collection_name", "GET", "")  # 获取指定collections的信息
+    get_coll_info = commen_api("describeCollection", "POST", body)  # 获取指定collections的信息
     println(get_coll_info)
 
     return collection_name
@@ -225,7 +226,7 @@ function test_2()
         feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
     else
         # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
-        feats = npzread("/data/zhangyong/data/longhu_1/sorted_2/feats.npy")
+        feats = npzread("/mnt/zy_data/data/longhu_1/sorted_2/feats.npy")
     end
 
     feats = convert(Matrix, feats[1:1000, 1:end])
@@ -271,13 +272,6 @@ test_2()
 3. search
 4. remove
 
-https://github.com/milvus-io/milvus/tree/0.11.0/core/src/server/web_impl
 
-v0.11  变化很大
-很多API变化了. creat, insert, search都变了
-
-v0.10 时, ids 是 [string]
-v0.11 时, ids 是 [int]
-test_2()   100000: add+search  13min
 
 =#

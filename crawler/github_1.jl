@@ -46,7 +46,7 @@ function stars()
             print(" ", star)
         end
         print("\n")
-        sleep(10)
+        sleep(4)
     end
     return lang_dict
 end
@@ -57,7 +57,6 @@ lang_dict = stars()
 data = DataFrame(lang_dict)
 
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
-# println(data)
 
 pretty_table(data, tf=tf_markdown)
 

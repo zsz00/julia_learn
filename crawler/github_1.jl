@@ -58,5 +58,5 @@ data = DataFrame(lang_dict)
 
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
 
-pretty_table(data, tf=tf_markdown)
+show(data, eltypes=false, tf=tf_markdown)   # pretty_table
 

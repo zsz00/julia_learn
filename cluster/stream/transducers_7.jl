@@ -622,11 +622,13 @@ function test_1(input_path, out_path)
     # stream pipeline
     # op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
     op_hac = HAC()   # 全局, on all camera
+
     # aa = Transducers.foldl(right, json_data |> Map(prase_json) |> op_hac |> collect)
     # aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1)|> op_hac |> collect )
     # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac    foldl foldxt
     # aa = Folds.reduce((right, json_data |> Map(prase_json) |> op_hac |> tcollect), NondeterministicEx()) 
     # collect   reduce   tcollect
+
     input_table = pd.read_pickle("/mnt/zy_data/data/testset/jianhang_2/img_list_2.csv_2.pkl")
     # input_table = DataFrame(input_table)
     rows = Tables.rows(input_table)
@@ -684,7 +686,7 @@ function main()
     input_path = "/mnt/zy_data/data/languang/input_languang_5_2.json"   # input_new.json
     out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_8.csv"
     input_path = "/mnt/zy_data/data/testset/jianhang_2/img_list_2.csv_2.json"
-    out_path = "/mnt/zy_data/data/testset/jianhang_2/out_2.csv"
+    out_path = "/mnt/zy_data/data/testset/jianhang_2/out_3.csv"
     test_1(input_path, out_path)
     # test_1_2(input_path, out_path)  # 并行
     # eval_1(basename(out_path))   # 评估

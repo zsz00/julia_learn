@@ -10,8 +10,8 @@ using LinearAlgebra
 
 function commen_api(component, method, body="", show=false)
     api_url = "tcp://192.168.3.199:19530/$component"   # 19530  19121 
-    # api_url = "http://192.168.3.199:19121/$component"  # 这docker有问题,因为cuda版本
-    api_url = "http://10.9.1.8:19121/$component"
+    api_url = "http://192.168.3.199:19121/$component"  # 这docker有问题,因为cuda版本
+    # api_url = "http://10.9.1.8:19121/$component"
     headers = Dict("accept"=>"application/json")  # , "Content-Type" => "application/json"
 
     response = HTTP.request(method, api_url, headers=headers, body=body)
@@ -353,7 +353,7 @@ end
 
 
 # test_1()
-@time test_2()
+# @time test_2()
 
 
 

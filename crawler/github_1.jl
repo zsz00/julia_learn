@@ -1,11 +1,10 @@
 using HTTP
 using Gumbo  # 解析网页元素
 using DataFrames
-import Dates
+using Dates: Dates
 using JLD2
 using PrettyTables
 using DataStructures
-
 
 # TODO 用github api做. 
 function stars()
@@ -14,11 +13,11 @@ function stars()
     langs = ["julia", "matlab", "r", "swift", "python", "rust", "typescript", "go"]
     # langs = ["julia", "matlab"]
     lang_dict = OrderedDict()
-    lang_dict["stars"] = [1, 10, 100 ,1000, 10000]
+    lang_dict["stars"] = [1, 10, 100, 1000, 10000]
     for pl in langs
         print(pl, "\t")
         lang_dict[pl] = []
-        for num in [1, 10, 100 ,1000, 10000]
+        for num in [1, 10, 100, 1000, 10000]
             url = "https://github.com/search?l=$(pl)&q=stars%3A%3E$(num)&s=updated&type=Repositories"
             # print(pl, " ", num)
 
@@ -26,17 +25,17 @@ function stars()
             body = String(res.body)
             html = Gumbo.parsehtml(body)
 
-            qdata = Base.eachmatch(r".* repository results", body);  # html.root    # 正则匹配
+            qdata = Base.eachmatch(r".* repository results", body)  # html.root    # 正则匹配
             data = collect(qdata)
             if length(data) == 0
                 star = 1
             else
                 star = data[1]
                 try
-                aa = star.match   # 匹配项字符串
-                star = match(r"\d*,*\d+", aa).match
-                star = replace(star, ","=>"")
-                star = parse(Int, star)
+                    aa = star.match   # 匹配项字符串
+                    star = match(r"\d*,*\d+", aa).match
+                    star = replace(star, "," => "")
+                    star = parse(Int, star)
                 catch
                     print("star: ", star)
                     star = 0
@@ -46,7 +45,7 @@ function stars()
             print(" ", star)
         end
         print("\n")
-        sleep(4)
+        sleep(10)
     end
     return lang_dict
 end
@@ -58,5 +57,5 @@ data = DataFrame(lang_dict)
 
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
 
-show(data, eltypes=false, tf=tf_markdown)   # pretty_table
+pretty_table(data; eltypes=false, tf=tf_markdown)   # pretty_table
 

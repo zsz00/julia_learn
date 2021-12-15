@@ -1,6 +1,8 @@
 # online MeanVar  2020.11.18
 using Transducers
 using Transducers: R_, start, next, complete, inner, xform, wrap, unwrap, wrapping
+using Folds, FoldsThreads
+using Test
 
 
 struct MeanVar <: Transducer
@@ -12,7 +14,6 @@ function Transducers.start(rf::R_{MeanVar}, result)
     result = wrap(rf, private_state, start(inner(rf), result))
     return result
 end
-
 
 function Transducers.next(rf::R_{MeanVar}, result, input)
     wrapping(rf, result) do st, iresult
@@ -35,8 +36,14 @@ function Transducers.complete(rf::R_{MeanVar}, result)
 end
 
 
-aa = collect(MeanVar(), 1:10)
-println(aa)
+# aa = collect(MeanVar(), 1:10^6)
+# println(aa)
 
-@time println(foldl(right, MeanVar(), 1:10))
+# @time println(foldl(right, MeanVar(), 1:10^8))
+# @time 1:10^8  |> MeanVar() |> collect    # 6s
+@time foldxt(right, 1:10^8 |> Partition(100,100) |> Map(sum) |> tcollect)  # 88s
+# ERROR: LoadError: Stateful transducer MeanVar() does not support `combine`
+# |> Partition(100,100)
+# KeyBy((x -> x.device_id), op_st_1)
+
 

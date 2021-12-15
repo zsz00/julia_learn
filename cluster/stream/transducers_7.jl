@@ -1,18 +1,20 @@
-# online cluster base on Transducers.   2021.1.30
-using NPZ, JLD2, FileIO
+# online cluster base on Transducers.   2021.1.30, 2021.3, 2021.5
 using Transducers
 using Transducers: R_, start, next, complete, inner, xform, wrap, unwrap, wrapping
+using NPZ, JLD2, FileIO, DataFrames, Tables
 using Strs, JSON3, Base64
 using NearestNeighbors, Distances
 using LinearAlgebra, Statistics
-using PyCall
+# using PyCall, BenchmarkTools
+using PythonCall
 using ThreadsX
 using Folds, FoldsThreads
 using BangBang  # for `push!!`
 include("milvus_api.jl")
 include("keyby.jl")
-# include("faiss_api.jl")
+include("ann.jl")
 
+@py import pandas as pd
 
 mutable struct Node <: Any
     n_id::String  # node id
@@ -153,7 +155,8 @@ struct HAC <: Transducer
     batch_size::Int32   
 end
 
-HAC() = HAC(100, 0.5, 100)  # 初始化结构体
+HAC() = HAC(50, 0.5, 50)  # 初始化结构体
+coll_name = creat_collection("repo_test_2", 384)
 
 function Transducers.start(rf::R_{HAC}, result)  
     hac = xform(rf)
@@ -161,7 +164,7 @@ function Transducers.start(rf::R_{HAC}, result)
     nodes = Dict()     # 节点信息.  最好只存代表点
     clusters = Dict("0"=>Cluster("0", 0, 0, [], 0, 0))    # 簇信息 
     tracks = Dict()    # 跟踪信息
-    collection_name = creat_collection("repo_test_3", 384)   # init index
+    collection_name = coll_name  # creat_collection("repo_test_2", 384)   # init index
     vectors = []  # 把一批的feat存到状态里. 为batch加的
     ids = []
     size_keynotes = 0      # 代表点数量
@@ -182,7 +185,7 @@ function Transducers.next(rf::R_{HAC}, result, input)
         batch_size = hac.batch_size
         num += 1
 
-        # input是PrivateState对象, 可获得 前op的state和result
+        # input是PrivateState对象, 可获得 前op的state和result. 同镜
         # top_k_st1, th_st1, batch_size_st1, num_st1, nodes_st1, clusters_st1, vectors_st1, ids_st1, size_keynotes_st1 = input.state  # state
         # node_st1 = input.result  # input.result    input
         node_st1 = input   # # 无同镜
@@ -191,7 +194,7 @@ function Transducers.next(rf::R_{HAC}, result, input)
         feat_1 = node.feature   # 特征
         n_id = node.n_id
         c_id = node.c_id
-        # cluster = clusters_st1[c_id]
+        # cluster = clusters_st1[c_id]   # 同镜
         cluster = Cluster(c_id, 1, 1, [n_id], 0, 0)    # 无同镜
 
         # init. 存了所有点
@@ -208,23 +211,29 @@ function Transducers.next(rf::R_{HAC}, result, input)
             del_keynodes_ids = []
             println(f"======:\(num), \(size(vectors))")
 
-            # query knn
             # query 
-            gallery = vcat((hcat(i...) for i in vectors)...)
+            gallery = vectors  # vcat((hcat(i...) for i in vectors)...)  # Vectors -> Matrix
             query = gallery
             # ids = vcat((hcat(i...) for i in ids)...)
             feats_1 = knn_feat(collection_name, gallery, query, num-batch_size)  # knn
-            feats_2 = matix2array(feats_1)   # knn feats
+            feats_2 = matix2Vectors(feats_1)   # knn feats
             # feats_2 = vectors  # 不用knn
-            # search top_k 
-            dists_1, idxs_1 = rank_2(feats_1, top_k, num-batch_size)    # 在本批查询, NN
-            # dists_1, idxs_1 = rank_1(feats_1, top_k, num-batch_size)    # 在本批查询, faiss
-            # dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)
-
-            rank_result = search_obj(collection_name, feats_2, top_k)   # search rank in milvus/fse 
-            dists_2, idxs_2 = prcoess_results_3(rank_result, top_k)
             
-            dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2) 
+            # search top_k 
+            # dists_1, idxs_1 = rank_2(feats_1, top_k, num-batch_size)    # 在本批查询, NN.jl
+            # dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)        # 在本批查询, NN.jl
+            dists_1, idxs_1 = rank_4(feats_2, feats_2, top_k, num-batch_size)  # 在本批查询, SS.jl
+
+            # rank_result = search_obj(collection_name, feats_2, top_k)  # search rank in milvus/fse 
+            # dists_2, idxs_2 = prcoess_results_3(rank_result, top_k)
+            if num == batch_size
+                dists_2 = zeros(Float32, (0, top_k))
+                idxs_2 = zeros(Int32, (0, top_k))
+            else
+                dists_2, idxs_2 = search_obj_batch(collection_name, feats_2, top_k)
+            end
+            # println(f"\(size(dists_1)), \(size(dists_2))")
+            dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2)
             idxs = size(idxs_2)[1] == 0 ? idxs_1 : hcat(idxs_1, idxs_2)
             # println(f"===:\(num), \(size(dists)), \(size(idxs))")
 
@@ -236,42 +245,32 @@ function Transducers.next(rf::R_{HAC}, result, input)
                 num_1 = batch*batch_size+i
                 n_id_1 = ids[num_1]   # 获取真obj_id
                 node_1 = nodes[n_id_1]
-                c_id_1 = node_1.c_id  # 会传递到nodes吗?会. 并且 未来的也会被下面的union_2 改变c_id
+                c_id_1 = node_1.c_id  # 会传递到nodes吗? 会. 并且 未来的也会被下面的union_2 改变c_id
 
-                quality_1 = -40<node_1.yaw<40  && -20<node_1.pitch<20 && node_1.mask<2
-                # 质量差的丢掉, 放到废片簇0里
-                if quality_1 && node_1.blur < 0.1  # 0.15
+                if node_1.n_id == "26fa57aa-a3aa-4175-bcb4-2d89d3c1bab4"
+                    println("==: ", node_1.obj_id, node_1.yaw, node_1.img_url) 
+                end
+                quality_1 = -40<node_1.yaw<40 && -30<node_1.pitch<30 # && node_1.mask<2
+                # 质量差的丢掉, 放到废片簇"0"里  
+                if quality_1 == false || node_1.blur < 0.1  # 0.1
                     if n_id_1 in keys(clusters)  # 注意:此处不能用c_id_1 
                         append!(clusters["0"].c_members, pop!(clusters, n_id_1).c_members)  # 按道理只一个member
-                        node_1.c_id = "0"   # 只一个member的c_id. 完全的应该是改全部的members
+                        nodes[n_id_1].c_id = "0"   # 只一个member的c_id. 完全的应该是改全部的members
                         continue
                     end
                 end
 
-                quality_2_1 = quality_1 && node_1.blur >= 0.1
-                cos_1 = length(dists_y) > 1 ? dists_y[2] : 0.0
-                if quality_2_1 && cos_1 < 0.95    # add  0.95
-                    push!(keynodes_feats, feats_2[i])   # 代表点
-                    push!(keynodes_ids, string(num_1))   # 代表点  node_1.n_id
-                    size_keynotes += 1
-                elseif quality_2_1 && cos_1 >= 0.95  # update
-                    push!(keynodes_feats, feats_2[i])   # 代表点
-                    push!(keynodes_ids, string(num_1))    # 代表点
-                    push!(del_keynodes_ids, string(idx_y[2]))   # 要被删除的id
-                end
-
-                # println(f"batch:\(batch),i:\(i), keynodes_feats:\(size(keynodes_feats)), keynodes_ids:\(size(keynodes_ids))")
+                # println(f"batch:\(batch),i:\(i), keynodes_feats:\(size(keynodes_feats)), del_keynodes_ids:\(size(del_keynodes_ids)), \(size_keynotes)")
 
                 for j in 1: length(idx_y)  # 遍历每个连接
                     id_1 = nodes[n_id_1].c_id 
-
                     idx_j = idx_y[j]
                     n_id_2 = ids[idx_j]   # 也有低质量的, 需要控制下
                     node_2 = nodes[n_id_2]
                     id_2 = node_2.c_id
                     cos_1 = dists_y[j]  # 相似度
                     if !(id_1 in keys(clusters))
-                        println(f"id_1: batch:\(batch),i:\(i),j:\(j), id_1:\(id_1), \(node_1.blur),\(node_1.n_id)")
+                        println(f"id_1: batch:\(batch),i:\(i),j:\(j), id_1:\(id_1), \(node_1.blur), \(node_1.n_id)")
                         continue
                     end
                     if !(id_2 in keys(clusters))
@@ -283,14 +282,41 @@ function Transducers.next(rf::R_{HAC}, result, input)
                         union_2!(id_1, id_2, nodes, clusters)
                     end
                 end
+
+                # 代表点选择
+                node_1 = nodes[n_id_1]
+                quality_2_1 = quality_1 && node_1.blur >= 0.1
+                cos_1 = length(dists_y) > 1 ? dists_y[2] : 0.0
+                
+                cluster_1 = clusters[node_1.c_id]
+                if quality_2_1
+                    if cos_1 <= 1 && cluster_1.c_key_size < 10   # add  0.95
+                        push!(keynodes_feats, feats_2[i])   # 代表点
+                        push!(keynodes_ids, string(num_1))   # 代表点  node_1.n_id
+                        cluster_1.c_key_size += 1
+                    elseif cos_1 >= 0.55 && cluster_1.c_key_size >= 10
+                        node_2 = nodes[ids[idx_y[2]]]
+                        if node_1.blur>node_2.blur  # update
+                            push!(keynodes_feats, feats_2[i])   # 代表点
+                            push!(keynodes_ids, string(num_1))    # 代表点
+                            push!(del_keynodes_ids, string(idx_y[2]))   # 要被删除的id. 
+                        end
+                    end
+                end
             end
+  
             if length(keynodes_ids) > 0
                 # println(f"\(collection_name), keynodes_feats:\(size(keynodes_feats)), keynodes_ids:\(size(keynodes_ids))")
                 insert_obj(collection_name, keynodes_feats, keynodes_ids)   # add  慢
+                size_keynotes += length(keynodes_feats)
             end
             if length(del_keynodes_ids) > 0
-                delete_obj(collection_name, del_keynodes_ids)
+                # del_keynodes_ids 需要去重
+                del_keynodes_ids_uniqued = unique(del_keynodes_ids)
+                delete_obj(collection_name, del_keynodes_ids_uniqued)
+                size_keynotes -= length(del_keynodes_ids_uniqued)
             end
+            # println(f"keynodes_feats:\(size(keynodes_feats)), del_keynodes_ids:\(size(del_keynodes_ids)), \(size_keynotes)")
             vectors = []
             # ids = []
         end
@@ -324,134 +350,114 @@ function union_2!(id_1, id_2, nodes, clusters)
             if idx_ in keys(nodes)
                 nodes[idx_].c_id = id_max
             else
-                println(f"union_2: \(idx_) no in nodes")
+                println(f"union_2: \(idx_) not in nodes")
             end
         end
+        clusters[id_max].c_key_size += clusters[id_min].c_key_size  # 代表点数量
         append!(clusters[id_max].c_members, pop!(clusters, id_min).c_members)  # 合并
+        
     end
 
 end
 
 function prase_json(json_data)
     data = JSON3.read(json_data)  # string to dict
-    node = Node("0", "0", "", 1.0, [], 0, "", "", 0, 0, 1, 1, 1)   # init node
-    
-    node.blur = data["RawMessage"]["vseResult"]["RecFaces"][1]["Qualities"]["Blur"]
-    feature_id = data["RawMessage"]["vseResult"]["RecFaces"][1]["Metadata"]["AdditionalInfos"]["FeatureID"]
-    feature = data["RawMessage"]["vseResult"]["RecFaces"][1]["Features"]  # base64
-    feature = base64decode(feature)
-    feature = reinterpret(Float32, feature)
-    node.feature = feature
-    node.obj_id = feature_id
-    node.n_id = feature_id
-    node.c_id = feature_id
-    node.img_url = data["RawMessage"]["vseResult"]["RecFaces"][1]["Img"]["Img"]["URI"]
+    faces = data["RawMessage"]["vseResult"]["RecFaces"]
+    for i in range(1, length(faces))
+        node = Node("0", "0", "", 1.0, [], 0, "", "", 0, 0, 1, 1, 1)   # init node
+        
+        node.blur = data["RawMessage"]["vseResult"]["RecFaces"][i]["Qualities"]["Blur"]
+        feature_id = data["RawMessage"]["vseResult"]["RecFaces"][i]["Metadata"]["AdditionalInfos"]["FeatureID"]
+        feature = data["RawMessage"]["vseResult"]["RecFaces"][i]["Features"]  # base64
+        feature = base64decode(feature)
+        feature = reinterpret(Float32, feature)
+        node.feature = feature
+        node.obj_id = feature_id
+        node.n_id = feature_id
+        node.c_id = feature_id
+        node.img_url = data["RawMessage"]["vseResult"]["RecFaces"][i]["Img"]["Img"]["URI"]
 
-    node.yaw = data["RawMessage"]["vseResult"]["RecFaces"][1]["Qualities"]["Yaw"]
-    node.pitch = data["RawMessage"]["vseResult"]["RecFaces"][1]["Qualities"]["Pitch"]
-    
-    attributes = data["RawMessage"]["vseResult"]["RecFaces"][1]["Attributes"]
-    face_att_key_dict = Dict(1=>"age", 3=>"glass", 4=>"hat", 6=>"mask", 16=>"gender", 19=>"other", 5=>"helmet",
-                                 28=>"肤色", 29=>"人脸表情", 30=>"人脸颜值")
-    att_dict = Dict()
-    for att in attributes
-        att_id = att["AttributeId"]
-        att_name = face_att_key_dict[att_id]
-        att_value = att["ValueId"]
-        att_confidence = att["Confidence"]
-        att_dict[att_name] = Dict("value"=> att_value, "confidence"=> att_confidence)
+        node.yaw = data["RawMessage"]["vseResult"]["RecFaces"][i]["Qualities"]["Yaw"]
+        node.pitch = data["RawMessage"]["vseResult"]["RecFaces"][i]["Qualities"]["Pitch"]
+        
+        attributes = data["RawMessage"]["vseResult"]["RecFaces"][i]["Attributes"]
+        face_att_key_dict = Dict(1=>"age", 3=>"glass", 4=>"hat", 6=>"mask", 16=>"gender", 19=>"other", 5=>"helmet",
+                                    28=>"肤色", 29=>"人脸表情", 30=>"人脸颜值")
+        att_dict = Dict()
+        for att in attributes
+            att_id = att["AttributeId"]
+            att_name = face_att_key_dict[att_id]
+            att_value = att["ValueId"]
+            att_confidence = att["Confidence"]
+            att_dict[att_name] = Dict("value"=> att_value, "confidence"=> att_confidence)
+        end
+
+        node.mask = Int32(att_dict["mask"]["value"])
+        node.glass = Int32(att_dict["glass"]["value"])
+        node.hat = Int32(att_dict["hat"]["value"])
+        
+        node.timestamp = data["RawMessage"]["vseResult"]["RecFaces"][i]["Metadata"]["Timestamp"]/(10^13)  # 13位,毫秒.
+        node.device_id = data["RawMessage"]["vseResult"]["RecFaces"][i]["Metadata"]["AdditionalInfos"]["UniqueSensorId"]
     end
-
-    node.mask = Int32(att_dict["mask"]["value"])
-    node.glass = Int32(att_dict["glass"]["value"])
-    node.hat = Int32(att_dict["hat"]["value"])
-    
-    node.timestamp = data["RawMessage"]["vseResult"]["RecFaces"][1]["Metadata"]["Timestamp"]/(10^13)  # 13位,毫秒.
-    node.device_id = data["RawMessage"]["vseResult"]["RecFaces"][1]["Metadata"]["AdditionalInfos"]["UniqueSensorId"]
-
     # println(node)
 
     return node
 end
 
-function rank_1(feats, top_k, n)
-    # base faiss
-    query = np.array(feats)
-    gallery = query
-    feat_dim = query.shape[1]
-    index = create_index(feat_dim, "")
-    dists, idxs = rank(index, query, gallery, topk=top_k)
-    idxs = idx .+ n
-    return dists, idxs
-end
+function prase_table(table_data)
+    # println(table_data)
+    data = table_data  # JSON3.read(json_data)  # string to dict
 
-function rank_2(feats, top_k, n)
-    # base NN.jl, top_k
-    # feats = vcat((hcat(i...) for i in feats)...)
-    X = transpose(feats)  # 矩阵转置, 也可以用 x'. 必须. 垃圾
-    X = convert(Array, X)
-    # println("size(x):", size(X), " ", typeof(X))
+    node = Node("0", "0", "", 1.0, [], 0, "", "", 0, 0, 1, 1, 1)   # init node
     
-    gallery = X
-    query = X
-    # top_k = top_k == 100 ? top_k-1 : top_k
-    top_k = top_k >=size(gallery)[2] ? size(gallery)[2] : top_k
-    brutetree = BruteTree(gallery, Euclidean())  # 暴力搜索树, 只支持Euclidean()不支持CosineDist(),但是可以转换. 没有增量add方式
-    # kdtree = KDTree(gallery, leafsize=4)   # 同index.add(gallery) 
-    idxs, dists = knn(brutetree, query, top_k, true)  # 单线程的, 很慢.  # query top_k  
-    dists = vcat((hcat(i...) for i in dists)...)  # 转换 shape
-    idxs = vcat((hcat(i...) for i in idxs)...)  # 转换 shape
-    # 后处理
-    dists = 1 .- dists ./ 2
-    idxs = idxs .+ n
-    return dists, idxs
-end
+    node.blur = data.blur
+    feature_id = data.obj_id
+    feature = data.feature  # base64
+    # feature = base64decode(feature)
+    # feature = reinterpret(Float32, feature)
+    node.feature = feature
+    node.obj_id = feature_id
+    node.n_id = feature_id
+    node.c_id = feature_id
+    node.img_url = data.img_url
 
-function rank_3(gallery, query, ids, top_k)
-    # knn, top_k. 基于NN的. 内存式,小批量适用
-    gallery = convert(Array, transpose(gallery))  # 矩阵转置, 也可以用 x'. 必须. 垃圾
-    # println("size(gallery):", size(gallery), " ", typeof(gallery))
-    top_k = top_k >=size(gallery)[2] ? size(gallery)[2] : top_k
+    node.yaw = data.yaw
+    node.pitch = data.pitch
+    node.mask = data.mask
+    node.glass = data.glass
+    node.hat = data.hat
     
-    query = convert(Array, transpose(query))  # 矩阵转置, 也可以用 x'. 必须. 垃圾
-    # println("size(query):", size(query), " ", typeof(query))
+    node.timestamp = data.capture_timestamp  # 13位,毫秒.
+    node.device_id = data.device_id
 
-    brutetree = BruteTree(gallery, Euclidean())  # 暴力搜索树, 只支持Euclidean()不支持CosineDist(),但是可以转换. 没有增量add方式
-    # kdtree = KDTree(gallery, leafsize=4)   # 同index.add(gallery) 
-    idxs, dists = knn(brutetree, query, top_k, true)  # 单线程的, 很慢.  # query top_k  
-    dists = vcat((hcat(i...) for i in dists)...)  # 转换 shape
-    idxs = vcat((hcat(i...) for i in idxs)...)  # 转换 shape
-    # println(f"\(size(idxs)), \(size(idxs)), \(size(ids)), \(ids)")
-    idxs = ids[idxs]
-    # idxs = vcat((hcat(i...) for i in idxs)...)  # 转换 shape
-    # println(f"\(size(idxs)), \(size(idxs)), \(size(ids)), \(ids)")
-    # 后处理
-    dists = 1 .- dists ./ 2
-    idxs = idxs
-    return dists, idxs
+    if node.n_id == "26fa57aa-a3aa-4175-bcb4-2d89d3c1bab4"
+        println(f"====: \(node.obj_id), \(node.yaw), \(data.yaw), \(node.img_url)") 
+    end
+    # println(node)
+
+    return node
 end
-
 
 function knn_feat(collection_name, gallery, query, n)
     # knn feat merge
     # knn_feats = mean(top_5 && cos>0.5)(feats)
     top_k = 5
     knn_th = 0.5
-    # vectors = query   # 100*384
-    # println(f"---vectors[1]:\(vectors[1])")
 
     # dists_1, idxs_1 = rank_1(query, top_k, n)  # 在本批查询   faiss
-    dists_1, idxs_1 = rank_2(query, top_k, n)  # 在本批查询
+    # dists_1, idxs_1 = rank_2(query, top_k, n)  # 在本批查询
     # dists_1, idxs_1 = rank_3(gallery, query, ids, top_k)  # 在本批查询
-    query_1 = matix2array(query)
+    dists_1, idxs_1 = rank_4(query, query, top_k, n)  # 在本批查询, 基于SimilaritySearch.jl
+
+    query_1 = query  # matix2Vectors(query)
     rank_result = search_obj(collection_name, query_1, 5)   # search top5 in milvus/fse 
     dists_2, idxs_2 = prcoess_results_3(rank_result, 5)  
     
     dists = size(dists_2)[1] == 0 ? dists_1 : hcat(dists_1, dists_2)  # 合并  100*10
     idxs = size(idxs_2)[1] == 0 ? idxs_1 : hcat(idxs_1, idxs_2)
 
-    feats_1 = query  # vcat((hcat(i...) for i in vectors)...)   # [[1,2,4],[2,4,5]]-> [1 2 4; 2 4 5]
-    feats_2 = zeros(size(feats_1))
+    feats_1 = vcat((hcat(i...) for i in query)...)   # Vectors -> Matrix
+    feats_2 = zeros(Float32, size(feats_1))
     size_1 = size(dists)
     for i in 1:size_1[1]
         dist = dists[i, :]
@@ -480,7 +486,6 @@ function knn_feat(collection_name, gallery, query, n)
             feat_2 = []
         end
         # println(size(feat_1), ",", size(feat_2), ",", size(tmp_feats), ",", size(mean(tmp_feats, dims=1)))
-        
         feats_2[i, 1:end] = normalize(mean(tmp_feats, dims=1))
 
     end
@@ -565,7 +570,7 @@ function max_k(data, k)
     return data, idxs
 end
 
-function matix2array(b)
+function matix2Vectors(b)
     c = []
     for i in 1:size(b)[1]
         c_1 = Array{Float32, 1}(b[i,:])
@@ -574,6 +579,36 @@ function matix2array(b)
     return c
 end
 
+# function eval_1(file_name)
+#     # pushfirst!(PyVector(pyimport("sys")."path"), "")
+#     # pushfirst!(PyVector(pyimport("sys")."path"), "../..")
+
+#     py"""
+#     import os, sys
+#     import numpy as np
+#     import pandas as pd
+#     sys.path.insert(0, "")
+#     sys.path.insert(0, "cluster")
+#     from utils import eval_cluster
+
+
+#     dir_1 = "/mnt/zy_data/data/pk/pk_13/output_1"
+#     cluster_path = os.path.join(dir_1, "out_1", $file_name)
+#     labels_pred_df = pd.read_csv(cluster_path, names=["obj_id", "person_id"])
+
+#     gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_21-small_1.pkl")  # 21  9
+#     gt_sorted_df = pd.read_pickle(gt_path)
+
+#     labels_true, labels_pred, _ = eval_cluster.align_gt(gt_sorted_df, labels_pred_df)
+#     metric, info = eval_cluster.eval(labels_true, labels_pred, is_show=True)
+#     metric["img_count"] = len(labels_pred) * 1.0
+#     metric["cluster_count"] = len(set(labels_pred)) * 1.0
+#     metric["drop"] = (len(labels_pred_df) - len(labels_true)) / len(labels_pred_df)
+#     print(f'drop:{metric["drop"]:.4f}')
+
+#     """
+# end
+
 # --------------------------------------------------------------
 # 主函数
 function test_1(input_path, out_path)
@@ -581,27 +616,35 @@ function test_1(input_path, out_path)
     println("test_1()")
     println("nthreads:", Threads.nthreads())
     # load data
-    input_json = open(input_path)
+    # input_json = open(input_path)
+    # json_data = collect(eachline(input_json))
     t1 = Dates.now()
     # stream pipeline
-    op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
+    # op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
     op_hac = HAC()   # 全局, on all camera
-    
-    aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> op_hac|> collect)
-    # eachline(input_json) |> Map(prase_json) |> tcollect
+
+    # aa = Transducers.foldl(right, json_data |> Map(prase_json) |> op_hac |> collect)
     # aa = Transducers.foldl(right, eachline(input_json) |> Map(prase_json) |> KeyBy((x -> x.device_id), op_st_1)|> op_hac |> collect )
     # KeyBy((x -> x.device_id), op_st_1) |>  |> op_hac    foldl foldxt
-    # Folds.reduce((right, eachline(input_json) |> Map(prase_json) |> collect), NondeterministicEx()) 
+    # aa = Folds.reduce((right, json_data |> Map(prase_json) |> op_hac |> tcollect), NondeterministicEx()) 
+    # collect   reduce   tcollect
 
-    hac, num, nodes, size_keynotes = aa
+    input_table = pd.read_pickle("/mnt/zy_data/data/testset/jianhang_2/img_list_2.csv_2.pkl")
+    # input_table = DataFrame(input_table)
+    rows = Tables.rows(input_table)
+    aa = Transducers.foldl(right, rows |> Map(prase_table) |> op_hac |> collect)
 
+    hac, num, nodes, size_keynotes_stat = aa
+    coll_info = get_coll_info("repo_test_2")
+    datetime_now = Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS")
+    used_time = (Dates.now() - t1).value/1000
+    println(f"\(datetime_now), used:\%.1f(used_time)s=\%.1f(used_time/60)min")
+    
     # 获取结果
     labels = [node.c_id for node in values(nodes)]
-    t2 = Dates.now()
     id_sum = length(Set(labels))
-    println(f"img_sum:\(length(labels)), id_sum:\(id_sum), keynotes_sum:\(size_keynotes), \%.1f(size_keynotes/id_sum)img/id")
-    used_time = (t2 - t1).value/1000
-    println(f"used: \%.1f(used_time)s=\%.1f(used_time/60)min")
+    size_keynotes = coll_info["count"]
+    println(f"img_sum:\(length(labels)), id_sum:\(id_sum), keynotes_sum_stat:\(size_keynotes_stat), keynotes_sum:\(size_keynotes), \%.1f(size_keynotes/id_sum)img/id")
     
     # 结果保存和评估
     f_out = open(out_path, "w")
@@ -610,85 +653,69 @@ function test_1(input_path, out_path)
         write(f_out, ss)
     end
     file_name = basename(out_path)
-    eval(file_name)   # 评估
+    # eval_1(file_name)   # 评估
 end
 
+function test_1_2(input_path, out_path)
+    # cluster online   2021.1.16, 2021.8.10 测试foldxt.   
+    println("test_1_2()")
+    println("nthreads:", Threads.nthreads())
+    # load data
+    input_json = open(input_path)
+    json_data = collect(eachline(input_json))
+    # json_data = eachline(input_json)
+    # stream pipeline
+    # op_st_1 = Spacetime1_Cluster()  # 同镜, on a camera
+    op_hac = HAC()   # 全局, on all camera
+    Transducers.foldxt(right, json_data |> Map(prase_json) |> op_hac |> tcollect)
+    # foldl  foldxt  tcollect
+    # prase_json可以, op_hac不行
+end
 
-function eval(file_name)
-    # pushfirst!(PyVector(pyimport("sys")."path"), "")
-    # pushfirst!(PyVector(pyimport("sys")."path"), "../..")
-
-    py"""
-    import os, sys
-    import numpy as np
-    import pandas as pd
-    sys.path.insert(0, "")
-    sys.path.insert(0, "..")
-    from utils import eval_cluster
-
-
-    dir_1 = "/mnt/zy_data/data/pk/pk_13/output_1"
-    cluster_path = os.path.join(dir_1, "out_1", $file_name)  # out_1_21.csv
-    labels_pred_df = pd.read_csv(cluster_path, names=["obj_id", "person_id"])
-
-    gt_path = os.path.join(dir_1, "merged_all_out_1_1_1_9-small_1.pkl")  # 21  9
-    gt_sorted_df = pd.read_pickle(gt_path)
-
-    labels_true, labels_pred, _ = eval_cluster.align_gt(gt_sorted_df, labels_pred_df)
-    metric, info = eval_cluster.eval(labels_true, labels_pred, is_show=True)
-    metric["img_count"] = len(labels_pred) * 1.0
-    metric["cluster_count"] = len(set(labels_pred)) * 1.0
-    metric["drop"] = (len(labels_pred_df) - len(labels_true)) / len(labels_pred_df)
-    print(f'drop:{metric["drop"]:.4f}')
-
-    # print(cluster_path)
-    # p_waste_id = "0"
-    # metric, info = eval_1.eval(labels_true, labels_pred, p_waste_id, is_show=False)
-    # print(info)
-    """
+function test_2()
+    println("nthreads:", Threads.nthreads())
+    # xs = randn(1000_000_000)
+    # # aa = foldl(+, Map(sin), xs)
+    # bb = foldxt(+, Map(sin), xs)
+    # print(bb)
 end
 
 
 function main()
     # input_path = "/data2/zhangyong/data/pk/pk_13/input/input_languang_5_2.json"   # input_languang_5_2
-    input_path = "/mnt/zy_data/data/languang/input_languang_4_2.json"   # input_new.json
-    out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_4.csv"
-    # test_1(input_path, out_path)
-    eval(basename(out_path))   # 评估
-end
-
-
-function test_2()
-    println("nthreads:", Threads.nthreads())
-    xs = randn(1000_000_000)
-    # aa = foldl(+, Map(sin), xs)
-    bb = foldxt(+, Map(sin), xs)
-    print(bb)
+    input_path = "/mnt/zy_data/data/languang/input_languang_5_2.json"   # input_new.json
+    out_path = "/mnt/zy_data/data/pk/pk_13/output_1/out_1/out_tmp_8.csv"
+    input_path = "/mnt/zy_data/data/testset/jianhang_2/img_list_2.csv_2.json"
+    out_path = "/mnt/zy_data/data/testset/jianhang_2/out_3.csv"
+    test_1(input_path, out_path)
+    # test_1_2(input_path, out_path)  # 并行
+    # eval_1(basename(out_path))   # 评估
 end
 
 
 @time main()
+# test_2()
 
 
 
 #=
 export JULIA_NUM_THREADS=4
 julia stream/transducers_7.jl
+julia --project=/home/zhangyong/codes/julia_learn/cluster/stream/Project.toml \
+/home/zhangyong/codes/julia_learn/cluster/stream/transducers_7.jl
+
+export JULIA_PYTHONCALL_EXE=/home/zhangyong/miniconda3/bin/python
 ----------------------------------------
 TODO:
 0. 加多维信息   OK
-0. 加同镜,跨镜,多时空阶段聚类 [keyby]  *****
+0. 加同镜,跨镜,多时空阶段聚类 [加了keyby,慢]  *****
 1. 加代表点[OK], 代表点更新  OK
 2. 质量加权动态阈值, 加权到knn里
 3. 加knn feat.  OK
-4. 接入kafka数据源, 超内存的数据源, 流式的dataloader. OK. 
+4. 接入kafka数据源, 超内存的数据源, 流式的dataloader. OK
 5. 加窗口
-6. 并行flods
-
-加速: 
-1. fse/milvus gpu 
-2. 并行
-3. 多op 级联
+6. 并行flods    不通
+7. 加了table input
 ----------------------------------------
 input_data |> spacetime1_cluster(json) |> spacetime2_cluster(nodes, clsuters) |> global_hac(nodes, clsuters) |> output_data
 
@@ -700,22 +727,24 @@ eachline(input_json) |> Map(prase_json) |> GroupBy((x -> x.device_id), op1) |> o
 问题: 
 1. 没有可add的rank. 慢, 改为faiss[难]
 2. foldxt 并行不起作用, 因为不支持eachline
+3. prase_json 输入1,输出2个, 怎么做stream
 
 milvus add with ids ,  OK
-有问题(c_id 找不到), 结果不能回归. 解决了此bug. ok
 还没 和同镜 联调, 联调OK
 
 联调: 跑通. 很慢.  
 milvus很慢, gpu使用率非常低. cpu利用率也很低[40%]. 
+发现慢不是因为milvus慢, 是因为前后处理慢. 
 
 
-6.4w
+
+6.4w  all ops
 used: 2138.8s=35.6min   foldl
 used: 2113.4s=35.2min   foldxt  
 used: 313.9s=5.2min  foldl  0.21机器,milvus也在这里
 used: 336.5s=5.6min  foldxt 0.21机器,milvus也在这里, nthreads=40, cpu,gpu没变. 
 
-
+248.5s=4.1min
 
 =#
 

@@ -45,17 +45,19 @@ function stars()
             print(" ", star)
         end
         print("\n")
-        sleep(10)
+        sleep(20)
     end
     return lang_dict
 end
 
-lang_dict = stars()
+# lang_dict = stars()
 # @save "crawler/all.jld2" lang_dict
-# @load "crawler/all.jld2" lang_dict
+@load "crawler/all.jld2" lang_dict
 data = DataFrame(lang_dict)
 
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
 
-pretty_table(data; eltypes=false, tf=tf_markdown)   # pretty_table
+pretty_table(data; nosubheader=true, tf=tf_markdown)
 
+# show(data; eltypes=false, tf=tf_markdown)  # tf不起作用.  不推荐
+ 

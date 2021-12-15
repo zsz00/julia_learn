@@ -172,14 +172,6 @@ test_1()
 3. search
 4. remove
 
-https://github.com/milvus-io/milvus/tree/0.11.0/core/src/server/web_impl
-
-v0.11  变化很大
-很多API变化了. creat, insert, search都变了
-
-v0.10 时, ids 是 [string]
-v0.11 时, ids 是 [int]
-test_2()   100000: add+search  13min
 
 =#
 

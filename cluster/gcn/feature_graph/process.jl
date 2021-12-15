@@ -17,7 +17,7 @@ for i in 0:9
     push!(accuracies2, 1.0 - mean((α1 .- α0) .^ 2.0));
 end
 
-println(mean(accuracies0));
+println(mean(accuracies0))
 println(accuracies0);
 println(mean(accuracies1));
 println(accuracies1);

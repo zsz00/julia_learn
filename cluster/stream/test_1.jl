@@ -56,8 +56,42 @@ function f_op_2(x)
     # return node_1
 end
 
+function test_async()
+    k = 0
+    bs = 99999
+    idxs = zeros(Int32, 1000)
+    @sync for i in 1:1000
+        @async begin 
+            k = i+1
+            if i == 9
+                bs = 99   
+            end
+            sleep(1)
+            kk1 = get_data1(i)  # 4s
+            kk2 = get_data2(kk1)  # 2s
+            println(f"\(i), \(i+1), \(bs)")
+            idxs[i] = kk2
+        end
+    end
+    println(idxs)
+end
 
-test_1()
+
+function get_data1(i)
+    sleep(4)
+    kk = i + 1
+    return kk
+end
+
+function get_data2(i)
+    sleep(2)
+    kk = i*2
+    return kk
+end
+
+
+# test_1()
+@time test_async()
 
 
 #=
@@ -67,19 +101,8 @@ data:
 Any[Node(1, "true"), Node(2, "false"), Node(3, "true"), Node(4, "false"), Node(5, "true"), 
 Node(6, "false"), Node(7, "true"), Node(8, "false"), Node(9, "true"), Node(10, "false")]
 
-GroupBy out:
-"true" : [1,3,5,7,9]
-"flase": [2,4,6,8,10]
+export JULIA_NUM_THREADS=4
 
-node_1 out:
-[3,4,9,8,15,12,21,16,27,20]
-
-"true" => [Node(3, "true"), Node(9, "true"), Node(15, "true"), Node(21, "true"), Node(27, "true")],
-"false" => [Node(4, "false"), Node(8, "false"), Node(12, "false"), Node(16, "false"), Node(20, "false")])
-
-
-Dict{String,Node}("true" => Node(3, "true"),"false" => Node(4, "false"))
-combine 联结
 
 =#
 

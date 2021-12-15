@@ -11,42 +11,6 @@ using Strs
 include("milvus_api.jl")   # milvus_api_2
 
 
-function test_4()
-    # cluster online   2020.10.18
-    println("test_4()")
-    # 加载数据
-    t0 = Dates.now()
-    if Sys.iswindows()
-        feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
-    else
-        # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
-        feats = npzread("/mnt/zy_data/data/longhu_1/sorted_2/feats.npy")
-    end
-    
-    feats = convert(Matrix, feats[1:195000, 1:end])
-    size_1 = size(feats)[1]
-    t1 = Dates.now()
-    println("used: ", (t1 - t0).value/1000, "s, ", size_1)
-
-    # 聚类op
-    op = ClusterOp()
-    b = nothing
-    @showprogress for i in 1:size_1
-        x1 = feats[i,1:end]
-        b = fit!(op, x1)   # x1需要支持更复杂的对象,包括质量和时空.
-        # ThreadsX.reduce(op, x1)  # 报错, 不能并行
-        # println(op.nodes)
-    end
-    t2 = Dates.now()
-    
-    # 获取结果
-    labels = values(op.nodes)
-    println(f"img_sum:\(size_1), id_sum:\(length(Set(labels)))")
-    println(f"used: \%.1f((t2 - t1).value/1000)s")
-    @save "nodes_1.jld2" labels
-
-end
-
 # 自定义类型, 结构体
 mutable struct ClusterOp <: OnlineStat{Vector{Float32}}
     top_k::Int32
@@ -62,8 +26,7 @@ mutable struct ClusterOp <: OnlineStat{Vector{Float32}}
     # 调用外部api.  index=milvus_api_1.IndexMilvus(dim=384, repo="repo1")
 end
 
-
-# 重构 fit方法, 实现op功能
+# 重构fit方法, 实现op功能
 function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
     o.num += 1
     # feat_1 = transform(feature)   # 反序列化
@@ -81,8 +44,7 @@ function OnlineStatsBase._fit!(o::ClusterOp, y)   # y::Array
     # push!(o.ids, o.num)
     # batch/window. 批处理. 是不是可以加个window op.
     if o.num % o.batch_size == 0
-        # add_obj(o.collection_name, o.vectors, o.ids)   # add  慢
-        println(f"======:\(o.num), \(length(o.ids)), \(size(o.vectors))")
+        println(f"\n======:\(o.num), \(length(o.ids)), \(size(o.vectors))")
         insert_obj(o.collection_name, o.vectors, o.ids)   # add  慢
         rank_result = search_obj(o.collection_name, o.vectors, o.top_k)   # search rank
         dists, idxs = prcoess_results_3(rank_result, o.top_k)
@@ -161,7 +123,6 @@ function cluster_hac()
 
 end
 
-
 function union_2!(i, j, nodes, clusters)
     id_1 = nodes[i]
     id_2 = nodes[j]
@@ -183,30 +144,59 @@ function union_2!(i, j, nodes, clusters)
 
 end
 
+function test_4()
+    # cluster online   2020.10.18, 2021.6.13
+    println("test_4()")
+    # 加载数据
+    t0 = Dates.now()
+    if Sys.iswindows()
+        feats = npzread(raw"C:\zsz\ML\code\DL\face_cluster\face_cluster\tmp2\data\valse19.npy")
+    else
+        # feats = npzread("/data5/yongzhang/cluster/data/cluster_data/valse/valse_feat.npy")
+        feats = npzread("/mnt/zy_data/data/longhu_1/sorted_2/feats.npy")
+    end
+    
+    feats = convert(Matrix, feats[1:195000, 1:end])
+    size_1 = size(feats)[1]
+    t1 = Dates.now()
+    println("used: ", (t1 - t0).value/1000, "s, ", size_1)
+
+    # 聚类op
+    op = ClusterOp()
+    b = nothing
+    @showprogress for i in 1:size_1
+        x1 = feats[i,1:end]
+        b = fit!(op, x1)   # x1需要支持更复杂的对象,包括质量和时空.
+        # ThreadsX.reduce(op, x1)  # 报错, 不能并行
+    end
+    t2 = Dates.now()
+    
+    # 获取结果
+    labels = values(op.nodes)
+    println(f"img_sum:\(size_1), id_sum:\(length(Set(labels)))")
+    println(f"used: \%.1f((t2 - t1).value/1000)s")
+    # @save "nodes_1.jld2" labels
+end
+
 
 test_4()
 # cluster_hac()
 
 
-
 #=
-2020.10, 2020.11
+2020.10, 2020.11, 2021.6.13
 JULIA_NUM_THREADS=4
 ---------------------------------
-基于onlinestats_1_2.jl
+2021.6.13 分析感觉 onlinestats 做这个更合理
 
-可以做一些事, 虽然不够完善.
- 
 
 TODO:
 0. 加同镜,跨镜 多时空阶段聚类
 1. 加代表点, 代表点更新
 2. 质量 加权动态阈值
 
-要应用Window
-
+要应用Window ?
 通过blur和cos 做代表点更新
-
 
 =#
 

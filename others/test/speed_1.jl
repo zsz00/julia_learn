@@ -61,6 +61,7 @@ function test_1()
 end
 
 
+
 @time aaa2()
 @time aaa3()
 # @time test_1()
@@ -72,7 +73,7 @@ set JULIA_NUM_THREADS=4     (win cmd)
 
 1.@threads没有内置的reduce函数支持. 只有简单的静态调度程序.
 2.不要使用锁或原子！(除非你知道自己在做什么)
-3. Julia在出现数据竞争时不是内存安全的.
+3.Julia在出现数据竞争时不是内存安全的.
 
 
 # 1.54 seconds

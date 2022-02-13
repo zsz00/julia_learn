@@ -6,7 +6,6 @@ module GraphSAGE
 
     export graph_encoder
 
-
     # 聚合
     struct AGG{F}
         S::String

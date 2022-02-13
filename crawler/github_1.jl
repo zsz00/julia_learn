@@ -6,6 +6,7 @@ using JLD2
 using PrettyTables
 using DataStructures
 
+
 # TODO 用github api做. 
 function stars()
     # url_1 = "https://github.com/search?l=r&q=stars%3A%3E1000&s=updated&type=Repositories"
@@ -45,7 +46,7 @@ function stars()
             print(" ", star)
         end
         print("\n")
-        sleep(20)
+        sleep(50)
     end
     return lang_dict
 end

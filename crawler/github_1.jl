@@ -59,6 +59,3 @@ data = DataFrame(lang_dict)
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
 
 pretty_table(data; nosubheader=true, tf=tf_markdown)
-
-# show(data; eltypes=false, tf=tf_markdown)  # tf不起作用.  不推荐
- 

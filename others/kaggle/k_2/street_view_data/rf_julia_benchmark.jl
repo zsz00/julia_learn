@@ -80,4 +80,4 @@ writetable("$(path)/juliaSubmission.csv", labelsInfoTest, separator=',', header=
 
 #Run 4 fold cross validation
 accuracy = nfoldCV_forest(yTrain, xTrain, 20, 50, 4, 1.0);
-println ("4 fold accuracy: $(mean(accuracy))")
+println("4 fold accuracy: $(mean(accuracy))")

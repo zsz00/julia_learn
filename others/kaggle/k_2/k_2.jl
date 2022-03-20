@@ -3,7 +3,8 @@ using CSV, DataFrames, PrettyTables, DataFramesMeta
 using StableRNGs
 using StatsModels
 using Images
-using Flux, MLJFlux
+using Flux, MLJFlux, Metalhead
+
 
 # RandomForestRegressor = @load RandomForestRegressor pkg=DecisionTree
 # # DTC = @load DecisionTreeClassifier pkg=DecisionTree
@@ -64,7 +65,6 @@ function flatten(x::AbstractArray)
 	return reshape(x, :, size(x)[end])
 end
 
-import MLJFlux
 mutable struct MyConvBuilder
 	filter_size::Int
 	channels1::Int
@@ -72,23 +72,33 @@ mutable struct MyConvBuilder
 	channels3::Int
 end
 
+#=
 function MLJFlux.build(b::MyConvBuilder, rng, n_in, n_out, n_channels)
-	k, c1, c2, c3 = b.filter_size, b.channels1, b.channels2, b.channels3
-	mod(k, 2) == 1 || error("`filter_size` must be odd. ")
+    init = Flux.kaiming_uniform(rng)
+    σ =NNlib.relu  # relu leakyrelu
+    k, n1, n2, n3 = b.filter_size, b.channels1, b.channels2, b.channels3
+    p = div(k - 1, 2)
+    front = Flux.Chain(
+                    Conv((k, k), n_channels => n1, pad=SamePad(), init=init),
+                    Conv((k, k), n1 => n2, σ, pad=SamePad(), init=init),
+                    Conv((k, k), n2 => n2, σ, pad=SamePad(), stride=1, init=init),
+                    Dropout(0.25),
+                    BatchNorm(n2),
+                    Conv((k, k), n2 => n3, σ, pad=SamePad(), stride=1, init=init),
+                    Conv((k, k), n3 => n3, σ, pad=SamePad(), stride=2, init=init),
+                    BatchNorm(n3),
+                    Conv((k, k), n3 => n3, σ, pad=SamePad(), stride=1, init=init),
+                    Conv((k, k), n3 => n3, σ, pad=SamePad(), stride=1, init=init),
+                    BatchNorm(n3),
+                    flatten)
+    d = Flux.outputsize(front, (n_in..., n_channels, 1)) |> first
+	return Flux.Chain(front, Dense(d, 512, σ), Dropout(0.25), Dense(512, n_out))
+end
+=#
 
-	# padding to preserve image size on convolution:
-	p = div(k - 1, 2)
-
-	front = Chain(
-			   Conv((k, k), n_channels => c1, pad=(p, p), relu),
-			   MaxPool((2, 2)),
-			   Conv((k, k), c1 => c2, pad=(p, p), relu),
-			   MaxPool((2, 2)),
-			   Conv((k, k), c2 => c3, pad=(p, p), relu),
-			   MaxPool((2 ,2)),
-			   flatten)
-	d = Flux.outputsize(front, (n_in..., n_channels, 1)) |> first
-	return Chain(front, Dense(d, n_out))
+function MLJFlux.build(b::MyConvBuilder, rng, n_in, n_out, n_channels)
+    model = ResNet18(pretrain=false, nclasses=n_out)
+    return model
 end
 
 # typeData could be either "train" or "test.
@@ -97,16 +107,19 @@ end
 # are 20x20 pixels, so imageSize is set to 400.
 # path should be set to the location of the data files.
 function read_data(typeData, labelsInfo, imageSize, path)
-    x = zeros(size(labelsInfo, 1), imageSize...)
-    for (index, idImage) in enumerate(labelsInfo.ID)     # we want to index it with a symbol instead of a string i.e. lablesInfoTrain[:ID]   
-        nameFile = "$(path)/$(typeData)Resized/$(idImage).Bmp"   # Read image file 
-        img = Images.load(nameFile)        # The replacement for imread() is load(). Depending on your platform, load() will use ImageMagick.jl or QuartzImageIO.jl (on a Mac) behind the scenes.
-        temp=Gray.(img)  # reshape(img, 1, imageSize...)  # Gray.(img)            # float32sc was deprecated so we have to convert the images dirctly to gray scale which is made easy in Julia
-        temp = Float64.(temp)
-        # println("$(size(img)), $(size(temp)), $(typeof(img))")
-        #Transform image matrix to a vector and store it in data matrix 
-        x[index, :, :] = reshape(temp, 1, imageSize...)
+    # x = zeros(size(labelsInfo, 1), imageSize...)   # RGB{N0f8},
+    x = Array{Matrix{RGB{N0f8}},1}()
+    for (index, idImage) in enumerate(labelsInfo.ID) 
+        nameFile = "$(path)/$(typeData)Resized/$(idImage).Bmp"   
+        img = Images.load(nameFile)  # Read image file 
+        # println("$(size(img)), $(typeof(img))")   # (20, 20), Matrix{RGB{N0f8}}
+        push!(x, img)
+        # temp=Gray.(img)  # reshape(img, 1, imageSize...)  # Gray.(img)           
+        # temp = convert(Matrix{ColorTypes.RGB{Float64}}, img)
+        # println("$(size(img)), $(size(temp)), $(typeof(img)), $(typeof(temp))")
+        # x[index, :, :] = reshape(temp, 1, imageSize...)
     end 
+    # x = reshape(x, imageSize..., 3, size(labelsInfo, 1))
     return x
 end
 
@@ -170,51 +183,65 @@ function process_2()
     path = "/home/zhangyong/codes/julia_learn/others/kaggle/k_2/street_view_data"  #add your path here
 
     labelsInfoTrain = CSV.read("$(path)/trainLabels.csv", DataFrame)  # read_table has been deprecated 
-    train_x = read_data("train", labelsInfoTrain, imageSize, path)
+    @time train_x = read_data("train", labelsInfoTrain, imageSize, path)  # 把数据全部读出到内存
     train_y = map(x -> x[1], labelsInfoTrain[:, "Class"])
 
     labelsInfoTest = CSV.read("$(path)/sampleSubmission.csv", DataFrame)
-    xTest = read_data("test", labelsInfoTest, imageSize, path)
+    test_x = read_data("test", labelsInfoTest, imageSize, path)
     
     @show size(train_x)  # (6283, 20, 20)
     @show size(train_y)
     images = train_x    # 28, 28, 60000
     labels = train_y
+    println("$(size(train_x)), $(size(images)), $(typeof(images))")  # AbstractVector{<:ColorImage} 
+
     # images = MLJ.table(images);   # 需要table类型的输入
-    # images = coerce(images, GrayImage)
+    # images = coerce(images, ColorImage)  # 把Array{T, 20,20,3,n} 转换为 AbstractVector{<:ColorImage}
+    labels = categorical(labels)
     labels = coerce(labels, Multiclass)
-    
+
+    println("$(size(train_x)), $(size(images))")
+
     ImageClassifier = @load ImageClassifier
 
-    clf = ImageClassifier(builder=MyConvBuilder(3, 16, 32, 32),
-					  epochs=100,
+    clf = ImageClassifier(builder=MyConvBuilder(3, 32, 64, 128),
+					  epochs=1000,
                       optimiser=ADAM(0.001),
 					  loss=Flux.crossentropy,
-                      batch_size=128,
+                      batch_size=512,
                       acceleration=CUDALibs(),)
 
-    mach = machine(clf, images, labels)
+    mach = machine(clf, images, labels)  # images:Vector{<:Image}
+    # fit!(mach, verbosity=3)
+    # fp = fitted_params(mach)
 
     @time eval = evaluate!(
         mach;
         resampling=Holdout(fraction_train=0.7, shuffle=true, rng=123),
         operation=predict_mode,
-        measure=[accuracy, #=cross_entropy, =#misclassification_rate],
-        verbosity = 3,
+        measure=[accuracy, #= cross_entropy,=# misclassification_rate],
+        verbosity=4,
     )
-    @show eval   # 0.986, 0.0141
-    
+    @show eval   # (0.501, 0.499) (0.47, 0.53) (0.438, 0.562) (0.486, 0.514)
+    # 179.574995  (0.478, 0.522) (0.565, 0.435) (0.607, 0.393)  (0.649, 0.351) (0.647, 0.353) 
+    # (0.656, 0.344) (0.675, 0.325) (0.663, 0.337)  (0.682, 0.318)
+    pred_dcrm_cls = predict_mode(mach, test_x)
+    @show pred_dcrm_cls[1:10]
+
+    labelsInfoTest[!, :Class] = pred_dcrm_cls
+    CSV.write("$(path)/juliaSubmission_11.csv", labelsInfoTest, writeheader=true)
 end
 
 process_2()
 
 
 #=
-kagggle google街景字符识别   2022.3.16
+kagggle google街景字符识别   2022.3.16--3.20
 参考:
 https://www.kaggle.com/c/street-view-getting-started-with-julia/data
 
 export JULIA_NUM_THREADS=40
+export CUDA_VISIBLE_DEVICES=5
 ENV["CUDA_VISIBLE_DEVICES"]=5 
 julia others/kaggle/k_2/k_2.jl
 
@@ -224,11 +251,10 @@ julia others/kaggle/k_2/k_2.jl
 2. MLJ文档不够好, 层次结构不清晰. 
 3. 很多三方包不够成熟. 集成不够好, 文档不够. 
 4. 怎么获取特征重要程度,特征相关性? mlj现在支持不行
-5. 当x是高维数据时,怎么做table类型的输入? xTrain = Tables.table(xTrain);  xTrain是3dim的这么办?
-6. Matrix{RGB{N0f8}} 怎么转为Matrix{Float64}? Float64.(data)
-7. 加dataloader
-
-找一个处理自定义图片数据的示例
+5. 当x是高维数据时,怎么做table类型的输入? xTrain = Tables.table(xTrain);
+6. Matrix{RGB{N0f8}} 怎么转为Matrix{Float64}? 
+7. 加dataloader,数据增强
+8. 加resnet18  OK
 
 
 

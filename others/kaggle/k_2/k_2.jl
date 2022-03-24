@@ -256,6 +256,9 @@ julia others/kaggle/k_2/k_2.jl
 7. 加dataloader,数据增强
 8. 加resnet18  OK
 
-
+using Images, Colors, ImageCore, ImageView
+img = load("Albert Einstein-rare-pics56.jpg")
+img_RGB = float(Array(channelview(img)))
+R_pixel = img_RGB[1,:,:];
 
 =#

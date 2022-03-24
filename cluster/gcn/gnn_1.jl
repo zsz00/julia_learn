@@ -2,7 +2,8 @@ using GraphNeuralNetworks, Graphs, Flux, CUDA, Statistics
 
 
 function gnn_1()
-    all_graphs = GNNGraph[]
+    # https://carlolucibello.github.io/GraphNeuralNetworks.jl/dev/#Package-overview 
+    all_graphs = GNNGraph[]   # GNNGraph类型的[].
     # 做数据. 1000个子图. 
     for _ in 1:1000
         g = GNNGraph(
@@ -18,16 +19,16 @@ function gnn_1()
     device = CUDA.functional() ? Flux.gpu : Flux.cpu
     println(device)
     model = device(GNNChain(
-                    GATConv(16 => 64),
+                    GCNConv(16 => 64),  # GCNConv  GATConv
                     BatchNorm(64),     # Apply batch normalization on node features (nodes dimension is batch dimension)
                     x -> relu.(x),
-                    GATConv(64 => 64, relu),
+                    GCNConv(64 => 64, relu),
                     GlobalPool(mean),  # aggregate node-wise features into graph-wise features
                     Dense(64, 1),
                 ))
 
     ps = Flux.params(model)
-    opt = ADAM(1.0f-4)
+    opt = ADAM(1.0f-3)
 
     # train
     gtrain = getgraph(gbatch, 1:800)
@@ -50,15 +51,20 @@ function gnn_1()
 end
 
 
+function gnn_2()
+    
+end
+
+
 gnn_1()
 
 
 #=
 2021.12.25
-base on GraphNeuralNetworks. 
-可正常work
-没有邻居抽样. 
-
+base on GraphNeuralNetworks. 官方示例,基本测试.    
+julia cluster/gcn/gnn_1.jl
+单CPU线程, 单GPU
+可正常跑, 但是结果不好,train_loss降低,test_loss不降低
 
 =#
 

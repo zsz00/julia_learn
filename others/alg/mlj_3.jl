@@ -110,7 +110,7 @@ function test_2()
 
     y_all = Nothing
     for i in range(1, 100; step=10)
-        x_df = hcat(vs_query, vs_query[idxs[:,i].+1,:]);   # 384*2*100000
+        x_df = hcat(vs_query, vs_query[idxs[:,i],:]);   # 384*2*100000
         y_df = dists[:, i];
         if i == 1
             x_all = x_df

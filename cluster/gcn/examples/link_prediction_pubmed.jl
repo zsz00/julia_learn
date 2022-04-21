@@ -1,34 +1,39 @@
-# An example of semi-supervised node classification
+# An example of link prediction using negative and positive samples.
+# Ported from https://docs.dgl.ai/tutorials/blitz/4_link_predict.html#sphx-glr-tutorials-blitz-4-link-predict-py
+# See the comparison paper https://arxiv.org/pdf/2102.12557.pdf for more details
 
 using Flux
 using Flux: onecold, onehotbatch
-using Flux.Losses: logitcrossentropy
+using Flux.Losses: logitbinarycrossentropy
 using GraphNeuralNetworks
-using MLDatasets: Cora
-using Statistics, Random
+using MLDatasets: PubMed
+using Statistics, Random, LinearAlgebra
 using CUDA
 CUDA.allowscalar(false)
-
-function eval_loss_accuracy(X, y, ids, model, g)
-    ŷ = model(g, X)
-    l = logitcrossentropy(ŷ[:,ids], y[:,ids])
-    acc = mean(onecold(ŷ[:,ids]) .== onecold(y[:,ids]))
-    return (loss = round(l, digits=4), acc = round(acc*100, digits=2))
-end
 
 # arguments for the `train` function 
 Base.@kwdef mutable struct Args
     η = 1f-3             # learning rate
-    epochs = 100          # number of epochs
+    epochs = 200          # number of epochs
     seed = 17             # set seed > 0 for reproducibility
-    usecuda = true      # if true use cuda (if available)
-    nhidden = 128        # dimension of hidden features
+    usecuda = false      # if true use cuda (if available)
+    nhidden = 64        # dimension of hidden features
     infotime = 10 	     # report every `infotime` epochs
+end
+
+# We define our own edge prediction layer but could also 
+# use GraphNeuralNetworks.DotDecoder instead.
+struct DotPredictor end
+
+function (::DotPredictor)(g, x)
+    z = apply_edges((xi, xj, e) -> sum(xi .* xj, dims=1), g, xi=x, xj=x)
+    # z = apply_edges(xi_dot_xj, g, xi=x, xj=x) # Same with built-in method
+    return vec(z)
 end
 
 function train(; kws...)
     args = Args(; kws...)
-
+    
     args.seed > 0 && Random.seed!(args.seed)
     
     if args.usecuda && CUDA.functional()
@@ -40,50 +45,75 @@ function train(; kws...)
         @info "Training on CPU"
     end
 
-    # LOAD DATA
-    data = Cora.dataset()
-    g = GNNGraph(data.adjacency_list) |> device
-    X = data.node_features |> device
-    y = onehotbatch(data.node_labels, 1:data.num_classes) |> device
-    train_ids = data.train_indices |> device
-    val_ids = data.val_indices |> device
-    test_ids = data.test_indices |> device
-    ytrain = y[:,train_ids]
+    ### LOAD DATA
+    data = PubMed.dataset()
+    g = GNNGraph(data.adjacency_list)
 
-    nin, nhidden, nout = size(X,1), args.nhidden, data.num_classes 
+    # Print some info
+    @info g
+    @show is_bidirected(g)
+    @show has_self_loops(g)
+    @show has_multi_edges(g)
+    @show mean(degree(g))
+    isbidir = is_bidirected(g)  
+
+    # Move to device
+    g = g |> device
+    X = data.node_features |> device
     
-    ## DEFINE MODEL
-    model = GNNChain(GCNConv(nin => nhidden, relu),
-                     Dropout(0.5),
-                     GCNConv(nhidden => nhidden, relu), 
-                     Dense(nhidden, nout))  |> device
+    #### TRAIN/TEST splits
+    # With bidirected graph, we make sure that an edge and its reverse
+    # are in the same split 
+    train_pos_g, test_pos_g = rand_edge_split(g, 0.9, bidirected=isbidir)
+    test_neg_g = negative_sample(g, num_neg_edges=test_pos_g.num_edges, bidirected=isbidir)
+
+    ### DEFINE MODEL #########
+    nin, nhidden = size(X,1), args.nhidden
+    
+    # We embed the graph with positive training edges in the model 
+    model = WithGraph(GNNChain(GCNConv(nin => nhidden, relu),
+                               GCNConv(nhidden => nhidden)),
+                      train_pos_g) |> device
+
+    pred = DotPredictor()
 
     ps = Flux.params(model)
     opt = ADAM(args.η)
 
-    @info g
-    
-    ## LOGGING FUNCTION
-    function report(epoch)
-        train = eval_loss_accuracy(X, y, train_ids, model, g)
-        test = eval_loss_accuracy(X, y, test_ids, model, g)        
-        println("Epoch: $epoch   Train: $(train)   Test: $(test)")
+    ### LOSS FUNCTION ############
+    function loss(pos_g, neg_g = nothing; with_accuracy=false)
+        h = model(X)
+        if neg_g === nothing
+            # We sample a negative graph at each training step
+            neg_g = negative_sample(pos_g, bidirected=isbidir)
+        end
+        pos_score = pred(pos_g, h)
+        neg_score = pred(neg_g, h)
+        scores = [pos_score; neg_score]
+        labels = [fill!(similar(pos_score), 1); fill!(similar(neg_score), 0)]
+        l = logitbinarycrossentropy(scores, labels)
+        if with_accuracy
+            acc = 0.5 * mean(pos_score .>= 0) + 0.5 * mean(neg_score .< 0)
+            return l, acc
+        else
+            return l
+        end
     end
     
-    ## TRAINING
+    ### LOGGING FUNCTION
+    function report(epoch)
+        train_loss, train_acc = loss(train_pos_g, with_accuracy=true)
+        test_loss, test_acc = loss(test_pos_g, test_neg_g, with_accuracy=true)
+        println("Epoch: $epoch  $((; train_loss, train_acc))  $((; test_loss, test_acc))")
+    end
+    
+    ### TRAINING
     report(0)
     for epoch in 1:args.epochs
-        gs = Flux.gradient(ps) do
-            ŷ = model(g, X)
-            logitcrossentropy(ŷ[:,train_ids], ytrain)
-        end
-
+        gs = Flux.gradient(() -> loss(train_pos_g), ps)
         Flux.Optimise.update!(opt, ps, gs)
-        
         epoch % args.infotime == 0 && report(epoch)
     end
 end
 
-train()
-
-
+# train()

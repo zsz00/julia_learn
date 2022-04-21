@@ -57,5 +57,4 @@ lang_dict = stars()
 data = DataFrame(lang_dict)
 
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
-
 pretty_table(data; nosubheader=true, tf=tf_markdown)

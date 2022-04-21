@@ -1,9 +1,12 @@
-# dataframe test
+# dataframe test, Dagger.DTable test
+ENV["CUDA_VISIBLE_DEVICES"]=40 
+ENV["JULIA_PYTHONCALL_EXE"] = "/home/zhangyong/miniconda3/bin/python"
 using Dates
 using DataFrames, PrettyTables
 using PythonCall
 using ProgressMeter
 using Dagger
+using BenchmarkTools
 
 
 function test_1()
@@ -32,10 +35,12 @@ end
 
 function test_2()
     println("test_2()")
-    @py import os, sys
-    sys.path.insert(0, Py("/home/zhangyong/codes/julia_learn/others/test/"))
-    @py import pd_1
-    pd_1.temp_2()
+
+    N = 10000
+    df = DataFrame(A = rand(1:10, N), B = rand(1:100, N))
+    d = @btime DTable(df, 2; tabletype=DataFrame)
+    f = @btime filter(x -> x.A == 1, d)
+    @btime fetch(f)
 end
 
 function test_3()
@@ -43,13 +48,13 @@ function test_3()
     @py import pandas as pd
     path_1 = "/mnt/zy_data/data/testset/jianhang_2/img_list_2.csv_2.pkl"
     path_2 = "/mnt/zy_data/data/gongzufang/merged_all_out_2_1_1_4-2.pkl"
-    input_table = pd.read_pickle(path_1)
+    input_table = pd.read_pickle(path_2)
     df = DataFrame(input_table)
     println(size(df))
-    d = DTable(df, 200; tabletype=DataFrame)
+    d = DTable(df, 20; tabletype=DataFrame)
     println(d)
-    println(size(fetch(d)))
-    show(fetch(d))  # 此show 结果有点问题,列数对不上
+    println(size(fetch(d)))   # 取数
+    show(fetch(d))
 
 end
 
@@ -57,8 +62,6 @@ end
 # test_1()
 # test_2()
 @time test_3()
-
-
 
 
 #=

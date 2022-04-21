@@ -53,9 +53,12 @@ function train(; kws...)
     nin, nhidden, nout = size(X,1), args.nhidden, data.num_classes 
     
     ## DEFINE MODEL
-    model = GNNChain(GATConv(nin => nhidden, relu),   # GCNConv  GATConv
+    model = GNNChain(GATv2Conv(nin => nhidden, relu),   # GCNConv  GATConv GATv2Conv
                      Dropout(0.5),
-                     GATConv(nhidden => nhidden, relu), 
+                     BatchNorm(nhidden),     # Apply batch normalization on node features (nodes dimension is batch dimension)
+                     GATv2Conv(nhidden => nhidden, relu), 
+                    #  BatchNorm(nhidden),
+                     Dropout(0.25),
                      Dense(nhidden, nout))  |> device
 
     ps = Flux.params(model)
@@ -92,6 +95,9 @@ train()
 base on GraphNeuralNetworks. 官方示例,基本测试.    
 julia cluster/gcn/examples/node_classification_cora.jl
 
+
+数据是一次性进显存的,没有用dataloader. 对于大数据集是不行的
+应用的少, 接口还不稳定.  
 
 =#
 

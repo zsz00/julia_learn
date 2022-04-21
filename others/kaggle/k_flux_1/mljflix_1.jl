@@ -43,7 +43,8 @@ function mian()
     labels = train_y
     images = coerce(images, GrayImage)
     labels = coerce(labels, Multiclass)
-    
+    println("$(size(train_x)), $(typeof(train_x)), $(size(images))")
+	# (28, 28, 60000), Base.ReinterpretArray{FixedPointNumbers.N0f8, 3, UInt8, Array{UInt8, 3}, false}, (60000,)
     ImageClassifier = @load ImageClassifier
 
     clf = ImageClassifier(builder=MyConvBuilder(3, 16, 32, 32),

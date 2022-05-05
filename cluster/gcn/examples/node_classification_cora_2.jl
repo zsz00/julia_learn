@@ -89,19 +89,30 @@ function train(; kws...)
     end
 end
 
-train()
+function test_1()
+    g = rand_graph(20, 100)
+    sg = sample_neighbors(g, 2:3, dropnodes=true)
+    n_ids = sg.ndata   # node id
+    e_ids = sg.edata   # edge id
+    edges = edge_index(sg)
+    print(sg)
+end
+
+
+# train()
+@time test_1()
 
 
 #=
 2022.3.24
 base on GraphNeuralNetworks. 官方示例,基本测试.  可正常跑通.  
 julia --project=/home/zhangyong/codes/julia_learn/cluster/gcn/Project.toml \
-cluster/gcn/examples/node_classification_cora.jl
+/home/zhangyong/codes/julia_learn/cluster/gcn/examples/node_classification_cora_2.jl
 
 
 数据是一次性进显存的,没有用dataloader. 对于大数据集是不行的.
 用sample_neighbors方法, 所有数据进内存, 然后按batch抽样进gpu.
-应用的少, 接口还不稳定.  
+应用的少, 接口还不稳定. 
 
 Cora节点分类, 训练测试acc=0.76, 准确率低
 acc=0.81

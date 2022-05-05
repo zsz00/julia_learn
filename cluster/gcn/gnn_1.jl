@@ -3,8 +3,9 @@ using GraphNeuralNetworks, Graphs, Flux, CUDA, Statistics
 
 function gnn_1()
     # https://carlolucibello.github.io/GraphNeuralNetworks.jl/dev/#Package-overview 
-    all_graphs = GNNGraph[]   # GNNGraph类型的[].
-    # 做数据. 1000个子图. 
+    
+    # 做数据. 生成1000个随机子图. 
+    all_graphs = GNNGraph[]   # GNNGraph类型的[], list.
     for _ in 1:1000
         g = GNNGraph(
             random_regular_graph(10, 4);  # 随机的规则无向图. 10个顶点,每个顶点的度是4.
@@ -36,7 +37,7 @@ function gnn_1()
     train_loader = Flux.Data.DataLoader(gtrain; batchsize=32, shuffle=true)
     test_loader = Flux.Data.DataLoader(gtest; batchsize=32, shuffle=false)
 
-    loss(g::GNNGraph) = mean((vec(model(g, g.ndata.x)) - g.gdata.y) .^ 2)
+    loss(g::GNNGraph) = mean((vec(model(g, g.ndata.x)) - g.gdata.y) .^ 2)  # L2 loss
 
     loss(loader) = mean(loss(device(g)) for g in loader)
 
@@ -51,18 +52,13 @@ function gnn_1()
 end
 
 
-function gnn_2()
-    
-end
-
-
 gnn_1()
 
 
 #=
 2021.12.25
-base on GraphNeuralNetworks. 官方示例,基本测试.    
-julia cluster/gcn/gnn_1.jl
+base on GraphNeuralNetworks. 官方示例,基本测试. 图预测任务   
+julia --project=/home/zhangyong/codes/julia_learn/cluster/gcn/Project.toml cluster/gcn/gnn_1.jl
 单CPU线程, 单GPU
 可正常跑, 但是结果不好,train_loss降低,test_loss不降低
 

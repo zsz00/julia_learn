@@ -58,3 +58,14 @@ data = DataFrame(lang_dict)
 
 println(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
 pretty_table(data; nosubheader=true, tf=tf_markdown)
+
+function show()
+    using CSV, Dates, DataFrames
+    data = DataFrame(CSV.File(out_path, dateformat="yyyy/mm/dd HH:MM", ntasks=2))
+    d_2 = data[data.stars .== 10, :]
+    using UnicodePlots
+    plt = lineplot(d_2.date, d_2.julia,color=:red, name="julia")
+    plt = lineplot!(plt, d_2.date, d_2.go, color=:green, name="go")
+
+end
+

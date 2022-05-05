@@ -71,3 +71,7 @@ end
 @time mian()
 
 
+#=
+MNIST 手写字识别  
+
+=#

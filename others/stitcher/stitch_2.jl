@@ -6,8 +6,6 @@ using Images, ImageFeatures, FileIO, ImageView, ImageDraw, Colors;
 
 img1 = load("test/imgs/1.jpg")
 img2 = load("test/imgs/2.jpg")
-# imshow(img1) PyArray
-# println("aa:", typeof(img1))
 
 
 function get_descriptors(img::AbstractArray)
@@ -83,15 +81,14 @@ matches = match_points(img1, img2, 0.1)   # OK, 特征匹配
 grid = draw_matches(img1, img2, matches)  # 画图
 imshow(grid)
 
-# H_computed_rot = compute_homography(matches)  # get homography matrix
+H_computed_rot = compute_homography(matches)  # get homography matrix
 # println(axes(H_computed_rot.m))
-# println(H_computed_rot)
-# # img1_warp = ImageTransformations.AffineMap(img1, H_computed_rot.m);
+println(H_computed_rot)
+img1_warp = ImageTransformations.AffineMap(img1, H_computed_rot.m);
 # img1_warp = ImageTransformations.warp(img1, H_computed_rot.m)  # error.  最后一步失败
 
 
 # using ImageProjectiveGeometry
-
 # ImageProjectiveGeometry.homography2d
 # homography2d()
 # solveaffine()

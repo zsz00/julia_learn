@@ -67,12 +67,13 @@ Flux.train!(loss, params(m), train, opt, cb = evalcb)
 
 
 #=
+2019.2
 accuracy(valX, valY) = 0.614
   PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND                                                                                                
 20932 test      20   0 4325636 3.290g  93744 R 569.1 21.1  85:37.60 julia -q vgg.jl
 accuracy(valX, valY) = 0.588
 
-small, vgg16, resnet50 在CPU, GPU[win10, ubuntu18.04]上都可以跑起来. 2019.2.2
+small, vgg16, resnet50 在CPU, GPU[win10,ubuntu18.04]上都可以跑起来. 2019.2.2
 bs=20, train 不能大， 不然会溢出
 
 ------------------------

@@ -57,8 +57,8 @@ Flux.train!(loss, params(m), train, opt, cb = evalcb)
 # Flux.loadparams!(model, weights)   # 加载模型参数
 
 
-# 怎么repeat   ??
 #=
+2019.2
 accuracy(tX, tY) = 0.865  60*4= batch_szie
 accuracy(tX, tY) = 0.904  60*6
 accuracy(tX, tY) = 0.935  60*12=720
@@ -66,6 +66,7 @@ accuracy(tX, tY) = 0.952  60*12*12=8640
 accuracy(tX, tY) = 0.982
 accuracy(tX, tY) = 0.990
 
+# 怎么repeat   ??
 
 Allocations: 93152515 (Pool: 92969827; Big: 182688); GC: 221
 Aborted (core dumped)

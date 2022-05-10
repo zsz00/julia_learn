@@ -1,6 +1,6 @@
 2022.3.16
 
-kagggle task:
+kagggle task: kagggle google街景字符识别
 
 First Steps With Julia
 Use Julia to identify characters from Google Street View images

@@ -117,7 +117,6 @@ RandomForestRegressor, DecisionTreeClassifier
 2. MLJ文档不够好, 层次结构不清晰. 
 3. 很多三方包不够成熟. 集成不够好, 文档不够. 
 4. 怎么获取特征重要程度,特征相关性?
-5. 怎么分析模型好不好, n折验证?
 
 RandomForestRegressor    0.24579491188658323
 DecisionTreeClassifier   0.16995662487369775  0.1714180243807161

@@ -150,6 +150,7 @@ test_2()
 2022.2.21
 回归 gps距离计算
 export JULIA_NUM_THREADS=40
+export CUDA_VISIBLE_DEVICES=3
 ENV["CUDA_VISIBLE_DEVICES"]=5 
 ENV["JULIA_PYTHONCALL_EXE"] = "/home/zhangyong/miniconda3/bin/python"
 julia others/alg/mlj_3.jl

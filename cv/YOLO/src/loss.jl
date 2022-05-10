@@ -114,7 +114,7 @@ function adjust_scale_prediction(y_pred::Float32, cell_grid, anchors::Tuple{Floa
     pred_box_conf = sigmoid.(y_pred[..., 4])# prob bb
 
     ### adjust class probabilities 
-    pred_box_class = y_pred[..., 5:] # prC1, prC2, ..., prC20
+    pred_box_class = y_pred[..., 5:end] # prC1, prC2, ..., prC20
 
     return pred_box_xy,pred_box_wh,pred_box_conf,pred_box_class
 end
